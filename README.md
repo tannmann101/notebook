@@ -6,8 +6,15 @@ of thought it is.
 ## Where this is
 
 The home screen only — static HTML, CSS and a little vanilla JavaScript, no
-build step and no dependencies. Entries on the page are samples for setting the
-look; nothing is stored yet.
+build step and no dependencies. The figures on the page are samples for setting
+the look; nothing is stored yet.
+
+The screen does two things. You write an entry and choose a notebook to file it
+in — leave that alone and it stays a **floating thought**, kept but not put away.
+Below it, the notebook ledger doubles as the breakdown: entries and words per
+notebook, with a bar showing each one's share. Picking a row sets where the next
+entry lands, so selecting a notebook and reading its numbers are the same
+gesture.
 
 ## Running it
 
@@ -23,7 +30,7 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | --- | --- |
 | `index.html` | Page structure and the sample entries |
 | `styles.css` | Design tokens and every rule on the page |
-| `app.js` | Dateline, live word count, setting an entry, `n` to focus |
+| `app.js` | Notebook data, the ledger, filing an entry, `n` to focus |
 
 ## The look
 
@@ -35,3 +42,7 @@ live at the top of `styles.css`; change them there and the page follows.
 ## Next
 
 Storage, then entry pages, then search. Nothing is decided yet.
+
+Notebooks live in a single `notebooks` array at the top of `app.js`, with
+unfiled entries in `floating` beside it. Everything on the page renders from
+those two, which is where persistence will hook in.
