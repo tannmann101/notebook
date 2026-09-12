@@ -8,11 +8,12 @@
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Petrona:ital,wght@0,300..700;1,300..600&family=Spline+Sans+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&family=Spline+Sans+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
+<div class="lamp" aria-hidden="true"></div>
 
 <header class="rail">
   <a class="mark" href="#">
@@ -20,7 +21,7 @@
     <span class="mark__word">Notebook</span>
   </a>
   <div class="rail__meta">
-    <span class="stamp" id="dateline">Loading&hellip;</span>
+    <span class="stamp" id="dateline">&nbsp;</span>
     <kbd class="key" title="Press n to start an entry">n</kbd>
   </div>
 </header>
@@ -29,27 +30,35 @@
 
   <section class="open">
     <p class="eyebrow">Entry <span id="next-folio">F.015</span> &middot; <span id="dest-echo">floating</span></p>
-    <h1 class="thesis">Put it down <br>before it&rsquo;s finished.</h1>
+    <h1 class="thesis" id="thesis">Put it down <br>before it&rsquo;s finished.</h1>
 
-    <form class="stick" id="entry-form" autocomplete="off">
-      <div class="stick__line">
-        <label class="visually-hidden" for="entry">Start an entry</label>
-        <input class="stick__input" id="entry" name="entry" type="text"
-               placeholder="A line, a scrap, a thought&hellip;">
-        <span class="stick__count stamp" id="count">0 w</span>
-      </div>
+    <form class="slate" id="entry-form" autocomplete="off">
+      <label class="visually-hidden" for="entry">Write an entry</label>
+      <textarea class="slate__area" id="entry" name="entry" rows="1"
+                placeholder="A line, a scrap, a thought&hellip;"></textarea>
+      <span class="slate__rule" aria-hidden="true"></span>
 
-      <div class="stick__foot">
-        <div class="dest">
-          <span class="dest__arrow stamp" aria-hidden="true">&rarr;</span>
-          <label class="visually-hidden" for="dest">File this entry in</label>
-          <select class="dest__select" id="dest" name="dest"></select>
+      <div class="slate__foot">
+        <div class="dest" id="dest">
+          <span class="dest__arrow" aria-hidden="true">&rarr;</span>
+          <button class="dest__btn" type="button" id="dest-btn"
+                  aria-haspopup="listbox" aria-expanded="false">
+            <span class="dye dye--none" id="dest-dye" aria-hidden="true"></span>
+            <span class="dest__name" id="dest-name">Floating thought</span>
+            <svg class="dest__caret" width="9" height="6" viewBox="0 0 9 6" aria-hidden="true">
+              <path d="M1 1l3.5 3.5L8 1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+          </button>
+          <ul class="dest__menu" id="dest-menu" role="listbox"
+              aria-label="File this entry in" hidden></ul>
         </div>
-        <button class="stick__set" type="submit">Set<span aria-hidden="true"> &crarr;</span></button>
+
+        <span class="slate__count stamp" id="count">0 w</span>
+        <button class="slate__enter" type="submit">Enter<span aria-hidden="true"> &crarr;</span></button>
       </div>
     </form>
 
-    <p class="stick__hint" id="hint" role="status" aria-live="polite">Left unfiled, it stays a floating thought &mdash; still kept, just not put away.</p>
+    <p class="slate__hint" id="hint" role="status" aria-live="polite"></p>
   </section>
 
   <section class="books-wrap" aria-labelledby="books-h">
@@ -58,15 +67,7 @@
       <span class="section-head__note stamp" id="books-note">&nbsp;</span>
     </div>
 
-    <div class="books-head" aria-hidden="true">
-      <span>Notebook</span>
-      <span>Entries</span>
-      <span>Words</span>
-    </div>
-
-    <ol class="books" id="books">
-      <li class="books__empty">Notebooks load with the page.</li>
-    </ol>
+    <ol class="books" id="books"></ol>
 
     <button class="book-new" type="button" id="book-new">
       <span class="book-new__plus" aria-hidden="true">+</span>
@@ -74,15 +75,19 @@
     </button>
   </section>
 
+  <section class="floaters" aria-labelledby="float-h">
+    <button class="floaters__btn" type="button" id="float-btn" aria-pressed="false">
+      <span class="floaters__label stamp">Unfiled</span>
+      <span class="floaters__head" id="float-h">Floating thoughts</span>
+      <span class="floaters__n"><b id="float-n">19</b> entries &middot; <b id="float-w">2,344</b> words</span>
+    </button>
+    <p class="floaters__note">Thoughts that never got put away. They keep just fine here.</p>
+  </section>
+
 </main>
 
 <footer class="colophon">
-  <dl class="counts">
-    <div><dt>Notebooks</dt><dd id="total-books">6</dd></div>
-    <div><dt>Entries</dt><dd id="total-entries">147</dd></div>
-    <div><dt>Words</dt><dd id="total-words">61,204</dd></div>
-    <div><dt>Kept since</dt><dd>4 Mar 2024</dd></div>
-  </dl>
+  <dl class="counts" id="counts"></dl>
   <p class="colophon__note">Sample figures, for setting the look. Nothing is stored.</p>
 </footer>
 

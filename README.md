@@ -9,12 +9,18 @@ The home screen only — static HTML, CSS and a little vanilla JavaScript, no
 build step and no dependencies. The figures on the page are samples for setting
 the look; nothing is stored yet.
 
-The screen does two things. You write an entry and choose a notebook to file it
-in — leave that alone and it stays a **floating thought**, kept but not put away.
-Below it, the notebook ledger doubles as the breakdown: entries and words per
-notebook, with a bar showing each one's share. Picking a row sets where the next
-entry lands, so selecting a notebook and reading its numbers are the same
-gesture.
+The screen has two states.
+
+**At rest** it's an index: notebooks with their entry counts, and a separate
+panel for **floating thoughts** — entries that never got filed. They're kept, and
+counted, but they're deliberately not a notebook. Picking a notebook sets where
+the next entry lands and scopes the figures at the bottom to that notebook:
+entries, words, last entry.
+
+**Composing** starts the moment you click into the writing area. The room dims,
+a lamp comes up, the headline steps aside, and what you type takes its place at
+display scale. Enter files it, Shift+Enter breaks a line, Esc steps back out.
+No modal, no page change, nothing to dismiss.
 
 ## Running it
 
@@ -30,14 +36,24 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | --- | --- |
 | `index.html` | Page structure and the sample entries |
 | `styles.css` | Design tokens and every rule on the page |
-| `app.js` | Notebook data, the ledger, filing an entry, `n` to focus |
+| `app.js` | Notebook data, the index, compose mode, filing an entry |
 
 ## The look
 
-A letterpress composing stone in a dark room — soot ground with a warm olive
-bias, bone ink, brass for emphasis, verdigris for tags. Young Serif for display,
-Petrona for reading, Spline Sans Mono for datestamps and counts. The tokens all
-live at the top of `styles.css`; change them there and the page follows.
+A machine shop after hours, not a library. Soot ground with a warm olive bias,
+bone ink, brass on the one thing that matters, and a cloth dye per notebook.
+Archivo set tight and slightly condensed does the talking; Spline Sans Mono
+handles anything that counts. The tokens all live at the top of `styles.css`;
+change them there and the page follows.
+
+## Keys
+
+| | |
+| --- | --- |
+| `n` | Start an entry |
+| `Enter` | File it |
+| `Shift` + `Enter` | New line |
+| `Esc` | Step back out |
 
 ## Next
 
