@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook</title>
+<meta name="description" content="A personal notebook. Put it down before it's finished.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Petrona:ital,wght@0,300..700;1,300..600&family=Spline+Sans+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="rail">
+  <a class="mark" href="#">
+    <span class="mark__rule" aria-hidden="true"></span>
+    <span class="mark__word">Notebook</span>
+  </a>
+  <div class="rail__meta">
+    <span class="stamp" id="dateline">Loading&hellip;</span>
+    <kbd class="key" title="Press n to start an entry">n</kbd>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="open">
+    <p class="eyebrow">Entry <span id="next-folio">F.015</span> &middot; unfiled</p>
+    <h1 class="thesis">Put it down <br>before it&rsquo;s finished.</h1>
+
+    <form class="stick" id="entry-form" autocomplete="off">
+      <label class="visually-hidden" for="entry">Start an entry</label>
+      <input class="stick__input" id="entry" name="entry" type="text"
+             placeholder="A line, a scrap, a thought&hellip;">
+      <span class="stick__count stamp" id="count" aria-live="off">0 w</span>
+      <button class="stick__set" type="submit">Set<span aria-hidden="true"> &crarr;</span></button>
+    </form>
+    <p class="stick__hint">Enter sets it down. Nothing here is saved yet &mdash; storage comes next.</p>
+  </section>
+
+  <section class="ledger" aria-labelledby="recent-h">
+    <div class="section-head">
+      <h2 class="section-head__title" id="recent-h">Recent</h2>
+      <span class="section-head__note stamp">last 7 days</span>
+    </div>
+
+    <ol class="entries" id="entries">
+      <li class="entry">
+        <span class="entry__folio stamp">F.014</span>
+        <div class="entry__body">
+          <h3 class="entry__title"><a href="#">Rewiring the shop lights</a></h3>
+          <p class="entry__excerpt">The junction box behind the bench is older than the house &mdash; copper, cloth insulation, no ground. Pulled a foot of it out to see what I&rsquo;m dealing with.</p>
+          <p class="entry__meta"><span class="tag">shop</span><span class="tag">wiring</span><span class="stamp">412 w &middot; yesterday</span></p>
+        </div>
+      </li>
+      <li class="entry">
+        <span class="entry__folio stamp">F.013</span>
+        <div class="entry__body">
+          <h3 class="entry__title"><a href="#">Sourdough, day nine</a></h3>
+          <p class="entry__excerpt">Fed at 7:10. Doubled by noon &mdash; first time it&rsquo;s kept pace without coaxing. Smells like beer instead of paint thinner, which I&rsquo;m told is the point.</p>
+          <p class="entry__meta"><span class="tag">kitchen</span><span class="stamp">96 w &middot; 2 days ago</span></p>
+        </div>
+      </li>
+      <li class="entry">
+        <span class="entry__folio stamp">F.012</span>
+        <div class="entry__body">
+          <h3 class="entry__title"><a href="#">What I actually want from a notebook</a></h3>
+          <p class="entry__excerpt">Not an organizer. Not a second brain. Somewhere to put a thought down at 11pm without first deciding what kind of thought it is.</p>
+          <p class="entry__meta"><span class="tag">notebook</span><span class="tag">design</span><span class="stamp">238 w &middot; 4 days ago</span></p>
+        </div>
+      </li>
+      <li class="entry">
+        <span class="entry__folio stamp">F.011</span>
+        <div class="entry__body">
+          <h3 class="entry__title"><a href="#">Trailhead at 5:40, fog to the treeline</a></h3>
+          <p class="entry__excerpt">Cold enough that the boardwalk was slick. Two deer at the second switchback, neither of them in any hurry about me.</p>
+          <p class="entry__meta"><span class="tag">field notes</span><span class="stamp">154 w &middot; 5 days ago</span></p>
+        </div>
+      </li>
+      <li class="entry">
+        <span class="entry__folio stamp">F.010</span>
+        <div class="entry__body">
+          <h3 class="entry__title"><a href="#">Bench plane, flea market, $14</a></h3>
+          <p class="entry__excerpt">Stanley No. 4, the iron pitted but the sole flat within a few thousandths. Tote is cracked through the horn &mdash; walnut, if I can find a scrap thick enough.</p>
+          <p class="entry__meta"><span class="tag">shop</span><span class="tag">tools</span><span class="stamp">301 w &middot; 6 days ago</span></p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="shelf-wrap" aria-labelledby="books-h">
+    <div class="section-head">
+      <h2 class="section-head__title" id="books-h">Notebooks</h2>
+      <a class="section-head__note stamp" href="#">all 7</a>
+    </div>
+    <div class="shelf-scroll">
+      <ul class="shelf">
+        <li><a class="spine spine--brass" href="#"><span class="spine__name">Workshop</span><span class="spine__n stamp">24</span></a></li>
+        <li><a class="spine spine--verdigris" href="#"><span class="spine__name">Field notes</span><span class="spine__n stamp">37</span></a></li>
+        <li><a class="spine spine--bone" href="#"><span class="spine__name">Kitchen</span><span class="spine__n stamp">11</span></a></li>
+        <li><a class="spine spine--lead" href="#"><span class="spine__name">Margins</span><span class="spine__n stamp">8</span></a></li>
+        <li><a class="spine spine--brass" href="#"><span class="spine__name">Scraps</span><span class="spine__n stamp">63</span></a></li>
+        <li><a class="spine spine--new" href="#" aria-label="New notebook"><span class="spine__plus" aria-hidden="true">+</span></a></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="colophon">
+  <dl class="counts">
+    <div><dt>Entries</dt><dd id="total-entries">147</dd></div>
+    <div><dt>Words</dt><dd id="total-words">61,204</dd></div>
+    <div><dt>Kept since</dt><dd>4 Mar 2024</dd></div>
+  </dl>
+  <p class="colophon__note">Sample entries, for setting the look. Nothing is stored.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
