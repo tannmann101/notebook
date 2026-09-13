@@ -515,6 +515,7 @@
     el.entryMeta.textContent = "Started " + stamp(entryStarted(entry));
 
     renderPassages();
+    warmPosters(entry, container);
     moveComposer(el.slotEntry, "entry");
     el.pickupDate.textContent = "Today · " + stamp(Date.now());
   }
@@ -949,6 +950,73 @@
     return "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
   }
 
+  /* A remote <img> survives a copy only if whatever you paste into goes and
+     fetches it, and most places won't — Messages and Mail hand you the link
+     and drop the picture. So the poster is fetched once and kept as bytes on
+     the clip, the same shape a clipped photo has, and the copy carries it
+     inline. Needs the host to allow a cross-origin read; if it doesn't, the
+     clip still shows the poster from the remote address and the copy falls
+     back to the link alone. */
+  var posterCache = Object.create(null);   /* url -> data URL, or null if it failed */
+
+  function posterBytes(href, done) {
+    var url = posterFor(href);
+    if (!url) { done(null); return; }
+
+    /* one attempt per address per session, so a blocked host isn't hammered
+       and a second clip of the same video is free */
+    if (Object.prototype.hasOwnProperty.call(posterCache, url)) {
+      done(posterCache[url]);
+      return;
+    }
+    posterCache[url] = null;
+
+    if (!window.fetch || !window.FileReader) { done(null); return; }
+
+    fetch(url, { mode: "cors", credentials: "omit" }).then(function (res) {
+      if (!res.ok) { throw new Error("poster " + res.status); }
+      return res.blob();
+    }).then(function (blob) {
+      if (!blob || blob.size === 0 || blob.size > 400 * 1024) { throw new Error("poster size"); }
+      var reader = new FileReader();
+      reader.onload = function () {
+        posterCache[url] = String(reader.result);
+        done(posterCache[url]);
+      };
+      reader.onerror = function () { done(null); };
+      reader.readAsDataURL(blob);
+    }).catch(function () {
+      done(null);   /* blocked, offline, or gone — the remote address still shows */
+    });
+  }
+
+  /* Links clipped before the poster existed, and any whose fetch was still in
+     flight when the entry was written, get filled in when you open the entry. */
+  function warmPosters(entry, container) {
+    var pending = [];
+
+    entry.passages.forEach(function (passage) {
+      (passage.clips || []).forEach(function (clip) {
+        if (!clip.thumb && clip.href && posterFor(clip.href)) { pending.push(clip); }
+      });
+    });
+    if (!pending.length) { return; }
+
+    var left = pending.length;
+    var got = false;
+
+    pending.forEach(function (clip) {
+      posterBytes(clip.href, function (data) {
+        if (data) { clip.thumb = data; got = true; }
+        left -= 1;
+        if (left === 0 && got) {
+          save(entry, container);
+          if (openEntry === entry) { renderPassages(); }
+        }
+      });
+    });
+  }
+
   function addLink(raw) {
     var text = raw.trim();
     var href = /^www\./i.test(text) ? "https://" + text : text;
@@ -964,7 +1032,17 @@
       meta = "link";
     }
 
-    clips.push({ mark: "LINK", name: name, meta: meta, href: href, thumb: null });
+    var clip = { mark: "LINK", name: name, meta: meta, href: href, thumb: null };
+    clips.push(clip);
+
+    posterBytes(href, function (data) {
+      if (!data) { return; }
+      /* the clip object outlives the draft — it's the same one the passage
+         keeps — so fill it in either way and only redraw if it's still here */
+      clip.thumb = data;
+      if (clips.indexOf(clip) !== -1) { renderClips(); }
+    });
+
     afterClips();
   }
 
@@ -1340,7 +1418,14 @@
       if (c.href) {
         var href = escapeHtml(c.href);
         var label = escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : ""));
-        var poster = posterFor(c.href);
+        var poster = c.thumb || posterFor(c.href);
+
+        /* inline bytes count against the budget; a remote address costs nothing
+           to carry, but only shows up where the reader will go and fetch it */
+        if (poster && c.thumb) {
+          if (spent + c.thumb.length > EMBED_BUDGET) { poster = posterFor(c.href); }
+          else { spent += c.thumb.length; }
+        }
 
         out.push("<p>" +
           (poster ? '<a href="' + href + '"><img src="' + escapeHtml(poster) +
