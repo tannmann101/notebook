@@ -51,8 +51,8 @@
 
 <main class="page">
 
-  <section class="results" id="results" hidden aria-label="Search results">
-    <p class="eyebrow" id="results-head">&nbsp;</p>
+  <section class="results panel" id="results" hidden aria-label="Search results">
+    <p class="panel__label eyebrow" id="results-head">&nbsp;</p>
     <ol class="entries" id="results-list"></ol>
     <p class="empty" id="results-empty" hidden>Nothing matches that. It may not have been written down yet.</p>
   </section>
@@ -63,13 +63,13 @@
     <section class="open">
       <p class="eyebrow">Entry <span id="next-entry">0062</span> &middot; <span id="dest-echo">floating</span></p>
       <h1 class="thesis" id="thesis">Enter Note Here</h1>
-      <div class="composer-slot" id="slot-home"></div>
+      <div class="composer-slot panel panel--pad" id="slot-home"></div>
     </section>
 
     <aside class="side home-body recede" id="home-body">
-      <section class="books-wrap" aria-labelledby="books-h">
-        <div class="section-head">
-          <h2 class="section-head__title" id="books-h">Notebooks</h2>
+      <section class="books-wrap panel" aria-labelledby="books-h">
+        <div class="panel__label">
+          <h2 class="panel__title" id="books-h">Notebooks</h2>
         </div>
 
         <ol class="books" id="books"></ol>
@@ -79,10 +79,12 @@
                 aria-expanded="false" hidden></button>
         <ol class="books books--archived" id="archived-books" hidden></ol>
 
-        <button class="book-new" type="button" id="book-new">
-          <span class="book-new__plus" aria-hidden="true">+</span>
-          <span>New notebook</span>
-        </button>
+        <div class="panel__foot">
+          <button class="book-new" type="button" id="book-new">
+            <span class="book-new__plus" aria-hidden="true">+</span>
+            <span>New notebook</span>
+          </button>
+        </div>
       </section>
 
       <section class="floaters" aria-labelledby="float-h">
@@ -103,7 +105,7 @@
       <a class="crumb__back" href="#/"><span aria-hidden="true">&larr;</span> Notebooks</a>
     </div>
 
-    <header class="book-head">
+    <header class="book-head panel panel--pad">
       <span class="dye" id="book-dye" aria-hidden="true"></span>
       <p class="book-head__state stamp" id="book-state" hidden>Archived</p>
       <h1 class="book-head__name" id="book-name">&nbsp;</h1>
@@ -128,9 +130,15 @@
     </aside>
 
     <div class="main">
-      <div class="composer-slot" id="slot-book"></div>
-      <ol class="entries recede" id="book-entries"></ol>
-      <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
+      <div class="composer-slot panel panel--pad" id="slot-book"></div>
+
+      <section class="panel recede" aria-label="Entries">
+        <div class="panel__label">
+          <h2 class="panel__title">Entries</h2>
+        </div>
+        <ol class="entries" id="book-entries"></ol>
+        <p class="empty" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
+      </section>
     </div>
   </section>
 
@@ -141,7 +149,7 @@
       <a class="crumb__back" href="#/" id="entry-back"><span aria-hidden="true">&larr;</span> Back</a>
     </div>
 
-    <header class="entry-head">
+    <header class="entry-head panel panel--pad">
       <div class="head-row">
         <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
         <div class="head-acts">
@@ -167,11 +175,13 @@
     </aside>
 
     <div class="main">
-      <ol class="passages recede" id="entry-passages"></ol>
+      <section class="panel recede" aria-label="Sittings">
+        <ol class="passages" id="entry-passages"></ol>
+      </section>
 
-      <div class="pickup">
-        <p class="pickup__date stamp" id="pickup-date">&nbsp;</p>
-        <div class="composer-slot" id="slot-entry"></div>
+      <div class="pickup panel">
+        <p class="panel__label pickup__date stamp" id="pickup-date">&nbsp;</p>
+        <div class="composer-slot panel--pad" id="slot-entry"></div>
       </div>
     </div>
   </section>
@@ -179,6 +189,7 @@
 </main>
 
 <footer class="colophon recede" id="colophon">
+ <div class="colophon__inner">
   <dl class="counts" id="counts"></dl>
   <button class="copy" type="button" id="copy-all">
     <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -205,6 +216,7 @@
   <input class="visually-hidden" type="file" id="restore-file" accept="application/json,.json">
 
   <p class="colophon__note" id="colophon-note">Kept in this browser, on this device. Nothing is uploaded.</p>
+ </div>
 </footer>
 
 <div class="report" id="report" hidden>

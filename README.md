@@ -156,6 +156,16 @@ change them there and the page follows. Ink contrast against the ground runs
 16:1, 6.9:1 and 4.5:1 for the three levels, so even the smallest datestamp
 clears AA.
 
+Three planes keep the sections apart, so nothing has to be told apart by
+spacing alone. **Chrome** — the rail and the colophon — sits a step darker than
+the page and frames it top and bottom. **The ground** is the page itself.
+**Panels** are working surfaces a step lighter, each with its own hairline edge
+and, where it helps, a labelled top row: the writing surface, the notebook
+index, an entry list, the sittings, the search results. Inside a panel, rows are
+divided by hairlines only — the panel's edge is what says where the section
+stops. Small controls are set *into* a panel, darker than the surface they sit
+on. Floating thoughts keep a dashed edge, because they are still not a notebook.
+
 Past about 1090px the page becomes two columns: the work runs down the main
 column while an aside holds where you are and what you can do — the notebook
 index on the home screen, the notebook's name and Copy inside one, the entry's

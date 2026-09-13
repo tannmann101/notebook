@@ -11,10 +11,13 @@
 
 :root {
   /* Ground and structure */
+  --chrome:    #100e0d;  /* the frame: rail and colophon, below the ground */
   --soot:      #131210;  /* page ground — warm near-black, olive bias */
   --soot-deep: #0d0c0b;  /* compose ground */
-  --stone:     #1a1815;  /* raised surface */
-  --stone-hi:  #201d19;  /* surface, hover */
+  --panel:     #1b1815;  /* a working surface, above the ground */
+  --panel-hi:  #221e19;  /* a row of one, under the pointer */
+  --stone:     #15120f;  /* small controls, set into a panel */
+  --stone-hi:  #1a1713;
   --lead:      #2b2723;  /* rules, dividers */
   --lead-hi:   #3d372e;
 
@@ -59,6 +62,11 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
+  /* so the colophon closes the page even when there's little in it */
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background-color: var(--soot);
   background-image: radial-gradient(120% 55% at 50% -12%, #1f1b16 0%, rgba(31,27,22,0) 62%);
   background-repeat: no-repeat;
@@ -127,23 +135,7 @@ body[data-mode="compose"] .lamp { opacity: 1; }
   color: var(--ash-dim);
 }
 
-.section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--lead);
-}
-.section-head__title {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--bone);
-}
-.section-head__note { margin-left: auto; }
+
 
 .dye {
   flex: 0 0 auto;
@@ -174,7 +166,8 @@ body[data-mode="compose"] .recede {
   position: relative;
   padding-block: 1.1rem;
   padding-inline: var(--gutter);
-  border-bottom: 1px solid var(--lead);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--lead-hi);
 }
 .rail__inner {
   display: flex;
@@ -218,10 +211,12 @@ body[data-mode="compose"] .recede {
 
 .page {
   position: relative;
+  flex: 1 0 auto;
+  width: 100%;
   max-width: var(--measure);
   margin-inline: auto;
   padding-inline: var(--gutter);
-  padding-block: clamp(2.5rem, 7vw, 4.5rem) 3rem;
+  padding-block: clamp(2.5rem, 7vw, 4.5rem) 0;
   display: flex;
   flex-direction: column;
   gap: clamp(2.5rem, 5.5vw, 3.5rem);
@@ -525,6 +520,53 @@ body[data-drop="on"] .lamp { opacity: 1; }
   border-radius: 2px;
 }
 
+
+/* --- panels --------------------------------------------------------------
+
+   Three planes, so nothing has to be told apart by spacing alone:
+
+     chrome   the rail and the colophon, a step darker than the page
+     ground   the page itself
+     panel    a working surface, a step lighter, with its own edge
+
+   Inside a panel, rows are separated by hairlines and nothing else — the
+   panel's own edge is what says where the section stops. */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--lead-hi);
+  border-radius: 3px;
+}
+
+.panel__label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0.62rem 1rem;
+  border-bottom: 1px solid var(--lead);
+}
+.panel__title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone);
+}
+
+.panel--pad { padding: 1rem; }
+.panel .empty { margin: 0; padding: 1.1rem 1rem; }
+
+.panel__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--lead);
+}
+
 /* --- views -------------------------------------------------------------- */
 
 .view, .home-body {
@@ -647,7 +689,6 @@ body[data-drop="on"] .lamp { opacity: 1; }
 
 /* --- results ------------------------------------------------------------ */
 
-.results { display: flex; flex-direction: column; gap: 1.2rem; }
 .results .eyebrow { color: var(--ash); }
 
 mark {
@@ -660,14 +701,12 @@ mark {
 
 .entries { list-style: none; margin: 0; padding: 0; }
 
-.row { border-bottom: 1px solid var(--lead); }
-.row:first-child { border-top: 1px solid var(--lead); }
+.row + .row { border-top: 1px solid var(--lead); }
 
 .row__btn {
   display: block;
   width: 100%;
-  margin-left: -0.65rem;
-  padding: 0.9rem 0.5rem 1rem 0.65rem;
+  padding: 0.9rem 1rem 1rem;
   background: transparent;
   border: 0;
   border-left: 2px solid transparent;
@@ -677,7 +716,7 @@ mark {
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.row__btn:hover { background: var(--stone); border-left-color: var(--brass-dim); }
+.row__btn:hover { background: var(--panel-hi); border-left-color: var(--brass); }
 
 .row__head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.35rem; }
 .row__stamp { color: var(--ash-dim); }
@@ -709,10 +748,9 @@ mark {
   display: grid;
   grid-template-columns: 7rem 1fr;
   gap: 0 1.6rem;
-  padding: 1.4rem 0;
-  border-top: 1px solid var(--lead);
+  padding: 1.3rem 1rem;
 }
-.passage:first-child { border-top: 0; padding-top: 0; }
+.passage + .passage { border-top: 1px solid var(--lead); }
 
 .passage__stamp { margin: 0; padding-top: 0.3rem; color: var(--ash-dim); }
 .passage__time { display: block; margin-top: 0.2rem; color: var(--ash); }
@@ -729,15 +767,7 @@ mark {
 
 /* --- picking it back up ------------------------------------------------- */
 
-.pickup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding-top: 1.3rem;
-  border-top: 1px solid var(--lead-hi);
-}
 .pickup__date {
-  margin: 0;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--brass);
@@ -756,15 +786,14 @@ mark {
 
 .books { list-style: none; margin: 0; padding: 0; }
 
-.book { border-bottom: 1px solid var(--lead); }
+.book + .book { border-top: 1px solid var(--lead); }
 
 .book__btn {
   display: flex;
   align-items: center;
   gap: 0.8rem;
   width: 100%;
-  padding: 0.78rem 0.5rem 0.78rem 0.65rem;
-  margin-left: -0.65rem;
+  padding: 0.72rem 1rem;
   background: transparent;
   border: 0;
   border-left: 2px solid transparent;
@@ -774,7 +803,7 @@ mark {
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.book__btn:hover { background: var(--stone); }
+.book__btn:hover { background: var(--panel-hi); border-left-color: var(--brass); }
 
 .book__name {
   display: flex;
@@ -810,12 +839,10 @@ mark {
 /* --- new notebook ------------------------------------------------------ */
 
 .book-new {
-  align-self: flex-start;
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin-top: 1.1rem;
-  padding: 0.5rem 0.8rem;
+  padding: 0.45rem 0.75rem;
   font-family: var(--mono);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
@@ -869,7 +896,7 @@ mark {
   align-items: center;
   gap: 0.35rem 1rem;
   width: 100%;
-  padding: 1rem 1.1rem;
+  padding: 0.95rem 1rem;
   text-align: left;
   color: inherit;
   font: inherit;
@@ -880,11 +907,11 @@ mark {
       rgba(255,255,255,0) 8px 16px
     );
   border: 1px dashed var(--lead-hi);
-  border-radius: 2px;
+  border-radius: 3px;
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease;
 }
-.floaters__btn:hover { border-color: var(--ash-dim); }
+.floaters__btn:hover { border-color: var(--ash-dim); background-color: var(--panel); }
 
 .floaters__label {
   grid-column: 1 / -1;
@@ -920,21 +947,21 @@ mark {
 
 .colophon {
   position: relative;
-  max-width: var(--measure);
-  margin-inline: auto;
+  flex: 0 0 auto;
+  margin-top: clamp(2rem, 5vw, 3.5rem);
   padding-inline: var(--gutter);
-  padding-block: 0 3rem;
+  padding-block: 1.3rem 2rem;
+  background: var(--chrome);
+  border-top: 1px solid var(--lead-hi);
+}
+.colophon__inner {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 1rem 2.5rem;
-}
-.colophon::before {
-  content: "";
-  flex: 0 0 100%;
-  height: 1px;
-  background: var(--lead);
-  margin-bottom: 0.5rem;
+  width: 100%;
+  max-width: calc(var(--measure) - 2 * var(--gutter));
+  margin-inline: auto;
 }
 
 .counts { margin: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1.1rem 2rem; }
@@ -1025,9 +1052,11 @@ mark {
 
 /* archived notebooks, folded away under a line */
 .archived__toggle {
-  align-self: flex-start;
-  margin-top: 0.9rem;
-  padding: 0.3rem 0;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-top: 1px solid var(--lead);
+  padding: 0.6rem 1rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ash-dim);
@@ -1042,7 +1071,7 @@ mark {
 
 .books--archived .book__name { color: var(--ash); }
 .books--archived .dye { opacity: 0.5; }
-.colophon .copy { align-self: flex-end; }
+.colophon__inner .copy { align-self: flex-end; }
 
 .head-row { display: flex; align-items: center; gap: 1rem; }
 .head-row .entry-head__title { flex: 1 1 auto; min-width: 0; }
@@ -1113,7 +1142,8 @@ mark {
 
 @media (min-width: 68em) {
   .rail__inner { max-width: calc(var(--span) - 2 * var(--gutter)); }
-  .page, .colophon { max-width: var(--span); }
+  .page { max-width: var(--span); }
+  .colophon__inner { max-width: calc(var(--span) - 2 * var(--gutter)); }
 
   .view {
     display: grid;
