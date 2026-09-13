@@ -1394,11 +1394,34 @@
                .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  /* A URL that ends a sentence shouldn't swallow the full stop — the link would
+     404 on the punctuation. Semicolons and colons are left alone: escaping has
+     already turned every & into &amp;, and trimming that trailing ; would break
+     the query string. */
+  var TAIL = /[.,!?)\]]+$/;
+
   /* URLs typed into the body get linked too, not just clipped ones */
   function linkify(text) {
     return escapeHtml(text).replace(/(https?:\/\/[^\s<>"]+)/g, function (url) {
-      return '<a href="' + url + '">' + url + "</a>";
+      var tail = "";
+      var clean = url.replace(TAIL, function (marks) { tail = marks; return ""; });
+      return '<a href="' + clean + '">' + clean + "</a>" + tail;
     });
+  }
+
+  /* An entry that is nothing but a URL becomes a clip, and clips get posters.
+     Write a word around that URL, or a second one after it, and it stays in
+     the body instead — where it used to be a bare link. Same treatment either
+     way now. */
+  function linksIn(text) {
+    var found = text.match(/https?:\/\/[^\s<>"]+/g) || [];
+    return found.map(function (url) { return url.replace(TAIL, ""); });
+  }
+
+  function posterHtml(href, poster) {
+    return '<a href="' + escapeHtml(href) + '"><img src="' + escapeHtml(poster) +
+           '" alt="" width="320" style="max-width:320px;height:auto' +
+           ';border-radius:3px"></a>';
   }
 
   var EMBED_BUDGET = 4 * 1024 * 1024;   /* keep the clipboard payload sane */
@@ -1406,13 +1429,24 @@
   function toHtml(blocks) {
     var out = [];
     var spent = 0;
+    var shown = Object.create(null);   /* one poster per video, however often it appears */
 
     blocks.forEach(function (b) {
       if (b.k === "rule" || b.k === "heavy") { out.push("<hr>"); return; }
       if (b.k === "head") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
       if (b.k === "meta") { out.push("<p><em>" + escapeHtml(b.text) + "</em></p>"); return; }
       if (b.k === "stamp") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
-      if (b.k === "para") { out.push("<p>" + linkify(b.text) + "</p>"); return; }
+      if (b.k === "para") {
+        out.push("<p>" + linkify(b.text) + "</p>");
+
+        linksIn(b.text).forEach(function (url) {
+          var poster = posterFor(url);
+          if (!poster || shown[poster]) { return; }
+          shown[poster] = true;
+          out.push("<p>" + posterHtml(url, poster) + "</p>");
+        });
+        return;
+      }
 
       var c = b.clip;
       if (c.href) {
@@ -1425,11 +1459,11 @@
            where they also work offline. A clipped photo has no address to give,
            which is why that one below still has to go inline. */
         var poster = posterFor(c.href);
+        if (poster && shown[poster]) { poster = null; }
+        if (poster) { shown[poster] = true; }
 
         out.push("<p>" +
-          (poster ? '<a href="' + href + '"><img src="' + escapeHtml(poster) +
-                    '" alt="" width="320" style="max-width:320px;height:auto' +
-                    ';border-radius:3px"></a><br>' : "") +
+          (poster ? posterHtml(c.href, poster) + "<br>" : "") +
           '<a href="' + href + '">' + label + "</a></p>");
         return;
       }
