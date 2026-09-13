@@ -1195,54 +1195,133 @@
   var RULE = "────────────────────────────────────────";
   var HEAVY = "════════════════════════════════════════";
 
+  /* A report is built as blocks and then rendered twice: once as plain text,
+     once as HTML. Both go on the clipboard, so a plain field gets the text and
+     anywhere that understands rich paste gets real links and inline pictures. */
+
   function reportEntry(entry, container, nested) {
     var head = "ENTRY " + entryNo(entry);
     if (!nested) { head += " · " + (container.loose ? "Floating" : container.name); }
 
-    var out = [head, "Started " + stamp(entryStarted(entry)), ""];
+    var blocks = [{ k: "head", text: head },
+                  { k: "meta", text: "Started " + stamp(entryStarted(entry)) }];
 
     inOrder(entry.passages).forEach(function (passage) {
-      out.push(stamp(passage.at) + " · " + timeOf(passage));
-      out.push(passage.text);
-      passage.clips.forEach(function (c) {
-        out.push("    [" + c.mark + "] " + c.name + (c.meta ? " · " + c.meta : ""));
+      blocks.push({ k: "stamp", text: stamp(passage.at) + " · " + timeOf(passage) });
+
+      passage.text.split("\n").forEach(function (line) {
+        if (line.trim()) { blocks.push({ k: "para", text: line }); }
       });
-      out.push("");
+
+      passage.clips.forEach(function (c) { blocks.push({ k: "clip", clip: c }); });
     });
 
-    return out.join("\n").trim();
+    return blocks;
   }
 
   function reportContainer(container, nested) {
     var entries = container.entries.slice().sort(byStarted);
     var count = entries.length + (entries.length === 1 ? " entry" : " entries");
 
-    var out = [container.name.toUpperCase(),
-               nested ? count : count + " · copied " + stamp(Date.now()), ""];
+    var blocks = [{ k: "head", text: container.name.toUpperCase() },
+                  { k: "meta", text: nested ? count
+                                            : count + " · copied " + stamp(Date.now()) }];
 
     entries.forEach(function (entry, i) {
-      if (i) { out.push(RULE, ""); }
-      out.push(reportEntry(entry, container, true), "");
+      if (i) { blocks.push({ k: "rule" }); }
+      blocks = blocks.concat(reportEntry(entry, container, true));
     });
 
-    if (!entries.length) { out.push("(empty)"); }
-    return out.join("\n").trim();
+    if (!entries.length) { blocks.push({ k: "para", text: "(empty)" }); }
+    return blocks;
   }
 
   function reportEverything() {
     var entries = 0;
     containers().forEach(function (c) { entries += c.entries.length; });
 
-    var out = ["NOTEBOOK — FULL SNAPSHOT",
-               "Copied " + stamp(Date.now()) + " · " + notebooks.length + " notebooks · " +
-               entries + (entries === 1 ? " entry" : " entries"), ""];
+    var blocks = [{ k: "head", text: "NOTEBOOK — FULL SNAPSHOT" },
+                  { k: "meta", text: "Copied " + stamp(Date.now()) + " · " +
+                     notebooks.length + " notebooks · " +
+                     entries + (entries === 1 ? " entry" : " entries") }];
 
     containers().forEach(function (c) {
-      out.push(HEAVY, "");
-      out.push(reportContainer(c, true), "");
+      blocks.push({ k: "heavy" });
+      blocks = blocks.concat(reportContainer(c, true));
     });
 
-    return out.join("\n").trim();
+    return blocks;
+  }
+
+  /* --- rendering a report ------------------------------------------------- */
+
+  function clipText(c) {
+    /* a bare URL on its own line, so anything that auto-links finds it */
+    if (c.href) { return c.href; }
+    return "[" + c.mark + "] " + c.name + (c.meta ? " · " + c.meta : "");
+  }
+
+  function toText(blocks) {
+    var out = [];
+    blocks.forEach(function (b) {
+      if (b.k === "rule") { out.push("", RULE, ""); }
+      else if (b.k === "heavy") { out.push("", HEAVY, ""); }
+      else if (b.k === "head") { out.push(b.text); }
+      else if (b.k === "meta") { out.push(b.text, ""); }
+      else if (b.k === "stamp") { out.push(b.text); }
+      else if (b.k === "para") { out.push(b.text, ""); }
+      else if (b.k === "clip") { out.push(clipText(b.clip), ""); }
+    });
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+               .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* URLs typed into the body get linked too, not just clipped ones */
+  function linkify(text) {
+    return escapeHtml(text).replace(/(https?:\/\/[^\s<>"]+)/g, function (url) {
+      return '<a href="' + url + '">' + url + "</a>";
+    });
+  }
+
+  var EMBED_BUDGET = 4 * 1024 * 1024;   /* keep the clipboard payload sane */
+
+  function toHtml(blocks) {
+    var out = [];
+    var spent = 0;
+
+    blocks.forEach(function (b) {
+      if (b.k === "rule" || b.k === "heavy") { out.push("<hr>"); return; }
+      if (b.k === "head") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
+      if (b.k === "meta") { out.push("<p><em>" + escapeHtml(b.text) + "</em></p>"); return; }
+      if (b.k === "stamp") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
+      if (b.k === "para") { out.push("<p>" + linkify(b.text) + "</p>"); return; }
+
+      var c = b.clip;
+      if (c.href) {
+        out.push('<p><a href="' + escapeHtml(c.href) + '">' +
+                 escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : "")) + "</a></p>");
+        return;
+      }
+
+      /* a picture can ride along inline; any other file can only be named */
+      if (c.thumb && spent + c.thumb.length < EMBED_BUDGET) {
+        spent += c.thumb.length;
+        out.push('<p><img src="' + c.thumb + '" alt="' + escapeHtml(c.name) +
+                 '" style="max-width:480px;height:auto"><br>' +
+                 "<small>" + escapeHtml(c.name + (c.meta ? " · " + c.meta : "")) +
+                 "</small></p>");
+        return;
+      }
+
+      out.push("<p>[" + escapeHtml(c.mark) + "] " +
+               escapeHtml(c.name + (c.meta ? " · " + c.meta : "")) + "</p>");
+    });
+
+    return out.join("\n");
   }
 
   function legacyCopy(text) {
@@ -1281,21 +1360,41 @@
     el.reportText.select();
   }
 
-  function copyOut(text, button, what) {
+  function copyOut(blocks, button, what) {
+    var text = toText(blocks);
+    var html = toHtml(blocks);
+
     function settle(ok) {
       if (ok) { flash(button, "Copied"); return; }
       flash(button, "Couldn't copy");
       openReport(text, what);
     }
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
+    function plain() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return Promise.reject();
+    }
+
+    /* both flavours at once: plain fields take the text, anything that
+       understands rich paste takes the links and pictures */
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({
+        "text/plain": new Blob([text], { type: "text/plain" }),
+        "text/html": new Blob([html], { type: "text/html" })
+      })]).then(
         function () { settle(true); },
-        function () { settle(legacyCopy(text)); }
+        function () {
+          plain().then(function () { settle(true); },
+                       function () { settle(legacyCopy(text)); });
+        }
       );
       return;
     }
-    settle(legacyCopy(text));
+
+    plain().then(function () { settle(true); },
+                 function () { settle(legacyCopy(text)); });
   }
 
   el.copyEntry.addEventListener("click", function () {

@@ -42,12 +42,21 @@ That one doesn't come back.
 
 ## Copying out
 
-Three levels, all plain text with no markup, so it reads the same in a mail
-draft, a text file or a document. **Copy entry** takes one thread with every
-sitting and its clips. **Copy notebook** takes every entry in it, newest first,
-separated by rules. **Copy everything** takes the whole snapshot, notebook by
-notebook, floating thoughts included. Lines aren't hard-wrapped, so they reflow
-wherever they land.
+Three levels. **Copy entry** takes one thread with every sitting and its clips.
+**Copy notebook** takes every entry in it, in notebook order, separated by
+rules. **Copy everything** takes the whole snapshot, notebook by notebook,
+floating thoughts included. Lines aren't hard-wrapped, so they reflow wherever
+they land.
+
+Each copy carries **two flavours at once**. A plain-text field gets plain text,
+with every link written out in full so anywhere that auto-links a bare URL makes
+it tappable. Anywhere that understands rich paste — Mail, Notes, Slack, a
+document — gets real anchors instead, including URLs typed into the entry itself,
+and clipped images ride along inline.
+
+Files other than images can't be attached to a copy: a web page may put text,
+HTML and images on the clipboard, and nothing else. They're named in the copy
+instead, and the file itself opens from the clip in the entry.
 
 If the clipboard can't be reached — some embeds block it — the report opens in a
 panel with the text selected, ready to copy by hand.
