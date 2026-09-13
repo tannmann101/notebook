@@ -17,8 +17,25 @@ that day and added to the same thread. An entry lives in a notebook, or it
 floats.
 
 Entries are numbered in one sequence across the whole notebook — `Entry 0059` —
-and the next entry takes the next number wherever it's filed. The number is the
-entry's name; its opening line does the describing, in lists and in search.
+and the next entry takes the next number wherever it's filed. Additions don't
+take numbers of their own: they're dated sittings on the entry they belong to.
+The number is the entry's name; its opening line does the describing, in lists
+and in search.
+
+Sittings are stamped with their date. A time appears only when two sittings
+share a day, since that's the only time the date can't tell them apart.
+
+## Copying out
+
+Three levels, all plain text with no markup, so it reads the same in a mail
+draft, a text file or a document. **Copy entry** takes one thread with every
+sitting and its clips. **Copy notebook** takes every entry in it, newest first,
+separated by rules. **Copy everything** takes the whole snapshot, notebook by
+notebook, floating thoughts included. Lines aren't hard-wrapped, so they reflow
+wherever they land.
+
+If the clipboard can't be reached — some embeds block it — the report opens in a
+panel with the text selected, ready to copy by hand.
 
 **Home** is the index: notebooks with their entry counts, and a panel for
 floating thoughts. **A notebook** lists its entries, newest touched first.

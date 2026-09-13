@@ -44,7 +44,9 @@
     "find", "find-n", "find-scope", "results-head", "results-list", "results-empty",
     "slot-home", "slot-book", "slot-entry", "book-dye", "book-name",
     "book-entries", "book-empty", "entry-back", "entry-title",
-    "entry-meta", "entry-passages", "pickup-date", "colophon"
+    "entry-meta", "entry-passages", "pickup-date", "colophon",
+    "copy-entry", "copy-book", "copy-all",
+    "report", "report-head", "report-text", "report-close"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
       document.getElementById(id);
@@ -164,6 +166,25 @@
       c.entries.forEach(function (e) { if (e.n > top) { top = e.n; } });
     });
     return top + 1;
+  }
+
+  function timeOf(passage) {
+    if (!passage.at) { return ""; }
+    return new Date(passage.at)
+      .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  /* oldest first, and within a day, in the order they were written */
+  function inOrder(passages) {
+    return passages.slice().sort(function (a, b) {
+      if (a.daysAgo !== b.daysAgo) { return b.daysAgo - a.daysAgo; }
+      return (a.at || 0) - (b.at || 0);
+    });
+  }
+
+  /* a time is only worth showing when the date alone doesn't tell them apart */
+  function sharesDay(passages, passage) {
+    return passages.filter(function (p) { return p.daysAgo === passage.daysAgo; }).length > 1;
   }
 
   function dyeNode(name) {
@@ -419,11 +440,15 @@
   function renderPassages() {
     el.entryPassages.textContent = "";
 
-    openEntry.passages.slice()
-      .sort(function (a, b) { return b.daysAgo - a.daysAgo; })
+    inOrder(openEntry.passages)
       .forEach(function (passage) {
         var li = elem("li", "passage");
-        li.appendChild(elem("p", "passage__stamp stamp", stamp(passage.daysAgo)));
+
+        var when = elem("p", "passage__stamp stamp", stamp(passage.daysAgo));
+        if (sharesDay(openEntry.passages, passage) && timeOf(passage)) {
+          when.appendChild(elem("span", "passage__time", timeOf(passage)));
+        }
+        li.appendChild(when);
 
         var body = elem("div", "passage__body");
         passage.text.split("\n").forEach(function (line) {
@@ -918,6 +943,7 @@
     var counted = words ? " · " + words + " w" : "";
     var passage = {
       daysAgo: 0,
+      at: Date.now(),
       text: text || clips[0].name,
       clips: clips.map(function (c) {
         return { mark: c.mark, name: c.name, meta: c.meta };
@@ -955,6 +981,148 @@
     }
 
     el.entry.focus();
+  });
+
+  /* --- copying it out -----------------------------------------------------
+
+     Plain text, no markup: it should read the same in a mail draft, a text
+     file, or a document. Lines aren't hard-wrapped so they reflow wherever
+     they land. */
+
+  var RULE = "────────────────────────────────────────";
+  var HEAVY = "════════════════════════════════════════";
+
+  function today() { return stamp(0); }
+
+  function reportEntry(entry, container, nested) {
+    var head = "ENTRY " + entryNo(entry);
+    if (!nested) { head += " · " + (container.loose ? "Floating" : container.name); }
+
+    var out = [head, "Started " + stamp(entryStarted(entry)), ""];
+
+    inOrder(entry.passages).forEach(function (passage) {
+      var when = stamp(passage.daysAgo);
+      if (timeOf(passage)) { when += " · " + timeOf(passage); }
+      out.push(when);
+      out.push(passage.text);
+      passage.clips.forEach(function (c) {
+        out.push("    [" + c.mark + "] " + c.name + (c.meta ? " · " + c.meta : ""));
+      });
+      out.push("");
+    });
+
+    return out.join("\n").trim();
+  }
+
+  function reportContainer(container, nested) {
+    var entries = container.entries.slice().sort(byRecency);
+    var count = entries.length + (entries.length === 1 ? " entry" : " entries");
+
+    var out = [container.name.toUpperCase(),
+               nested ? count : count + " · copied " + today(), ""];
+
+    entries.forEach(function (entry, i) {
+      if (i) { out.push(RULE, ""); }
+      out.push(reportEntry(entry, container, true), "");
+    });
+
+    if (!entries.length) { out.push("(empty)"); }
+    return out.join("\n").trim();
+  }
+
+  function reportEverything() {
+    var entries = 0;
+    containers().forEach(function (c) { entries += c.entries.length; });
+
+    var out = ["NOTEBOOK — FULL SNAPSHOT",
+               "Copied " + today() + " · " + notebooks.length + " notebooks · " +
+               entries + (entries === 1 ? " entry" : " entries"), ""];
+
+    containers().forEach(function (c) {
+      out.push(HEAVY, "");
+      out.push(reportContainer(c, true), "");
+    });
+
+    return out.join("\n").trim();
+  }
+
+  /* --- getting it to the clipboard ---------------------------------------- */
+
+  function legacyCopy(text) {
+    var pad = document.createElement("textarea");
+    pad.value = text;
+    pad.setAttribute("readonly", "");
+    pad.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(pad);
+    pad.select();
+
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (err) { ok = false; }
+    document.body.removeChild(pad);
+    return ok;
+  }
+
+  function flash(button, message) {
+    var label = button.querySelector(".copy__label");
+    if (button.dataset.said) { return; }
+    button.dataset.said = label.textContent;
+    label.textContent = message;
+    button.classList.add("copy--done");
+
+    window.setTimeout(function () {
+      label.textContent = button.dataset.said;
+      delete button.dataset.said;
+      button.classList.remove("copy--done");
+    }, 2200);
+  }
+
+  function openReport(text, what) {
+    el.reportHead.textContent = "Select all, then copy — " + what;
+    el.reportText.value = text;
+    el.report.hidden = false;
+    el.reportText.focus();
+    el.reportText.select();
+  }
+
+  function copyOut(text, button, what) {
+    function settle(ok) {
+      if (ok) { flash(button, "Copied"); return; }
+      flash(button, "Couldn't copy");
+      openReport(text, what);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { settle(true); },
+        function () { settle(legacyCopy(text)); }
+      );
+      return;
+    }
+    settle(legacyCopy(text));
+  }
+
+  el.copyEntry.addEventListener("click", function () {
+    copyOut(reportEntry(openEntry, openBook), el.copyEntry, "Entry " + entryNo(openEntry));
+  });
+
+  el.copyBook.addEventListener("click", function () {
+    copyOut(reportContainer(openBook), el.copyBook, openBook.name);
+  });
+
+  el.copyAll.addEventListener("click", function () {
+    copyOut(reportEverything(), el.copyAll, "the full snapshot");
+  });
+
+  function closeReport() {
+    el.report.hidden = true;
+  }
+
+  el.reportClose.addEventListener("click", closeReport);
+  el.reportText.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") { closeReport(); }
+  });
+  el.report.addEventListener("click", function (event) {
+    if (event.target === el.report) { closeReport(); }
   });
 
   /* --- a new notebook ----------------------------------------------------- */
@@ -1035,7 +1203,8 @@
       event.preventDefault();
       el.find.focus();
     } else if (event.key === "Escape") {
-      if (finding) { clearSearch(); }
+      if (!el.report.hidden) { closeReport(); }
+      else if (finding) { clearSearch(); }
       else if (view !== "home") { go(view === "entry" ? "#/n/" + openBook.id : "#/"); }
     }
   });

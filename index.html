@@ -90,6 +90,14 @@
     <header class="book-head recede">
       <span class="dye" id="book-dye" aria-hidden="true"></span>
       <h1 class="book-head__name" id="book-name">&nbsp;</h1>
+      <button class="copy" type="button" id="copy-book">
+        <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
+          <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
+        </svg>
+        <span class="copy__label">Copy notebook</span>
+      </button>
     </header>
 
     <div class="composer-slot" id="slot-book"></div>
@@ -105,7 +113,17 @@
     </div>
 
     <header class="entry-head recede">
-      <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
+      <div class="head-row">
+        <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
+        <button class="copy" type="button" id="copy-entry">
+          <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
+            <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
+          </svg>
+          <span class="copy__label">Copy entry</span>
+        </button>
+      </div>
       <p class="entry-head__meta stamp" id="entry-meta">&nbsp;</p>
     </header>
 
@@ -121,8 +139,24 @@
 
 <footer class="colophon recede" id="colophon">
   <dl class="counts" id="counts"></dl>
+  <button class="copy" type="button" id="copy-all">
+    <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
+      <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
+    </svg>
+    <span class="copy__label">Copy everything</span>
+  </button>
   <p class="colophon__note">Sample entries, for setting the look. Nothing is stored.</p>
 </footer>
+
+<div class="report" id="report" hidden>
+  <div class="report__frame">
+    <p class="report__head stamp" id="report-head">Select all, then copy</p>
+    <textarea class="report__text" id="report-text" readonly aria-label="Report text"></textarea>
+    <button class="report__close" type="button" id="report-close">Close</button>
+  </div>
+</div>
 
 <!-- one composer, moved to whichever view is asking -->
 <div class="composer" id="composer">

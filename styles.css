@@ -702,6 +702,7 @@ mark {
 .passage:first-child { border-top: 0; padding-top: 0; }
 
 .passage__stamp { margin: 0; padding-top: 0.3rem; color: var(--ash-dim); }
+.passage__time { display: block; margin-top: 0.2rem; color: var(--ash); }
 .passage__body { min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .passage__text {
   margin: 0;
@@ -962,6 +963,92 @@ mark {
 
 .colophon__note { margin: 0 0 0 auto; font-size: 0.78rem; color: var(--ash-dim); }
 
+/* --- copying out -------------------------------------------------------- */
+
+.copy {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.65rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  background: transparent;
+  border: 1px solid var(--lead-hi);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.copy:hover { color: var(--brass); border-color: var(--brass-dim); }
+.copy--done { color: var(--brass); border-color: var(--brass); }
+.copy__mark { flex: 0 0 auto; }
+
+.book-head .copy { margin-left: auto; }
+.colophon .copy { align-self: flex-end; }
+
+.head-row { display: flex; align-items: center; gap: 1rem; }
+.head-row .entry-head__title { flex: 1 1 auto; min-width: 0; }
+
+/* the text itself, for when the clipboard is out of reach */
+.report {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background: rgba(10, 9, 8, 0.84);
+}
+.report__frame {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: min(46rem, 100%);
+  max-height: min(40rem, 84vh);
+  padding: 1.2rem;
+  background: var(--soot-deep);
+  border: 1px solid var(--lead-hi);
+  border-radius: 3px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.report__head {
+  margin: 0;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+.report__text {
+  flex: 1 1 auto;
+  min-height: 15rem;
+  resize: none;
+  padding: 0.9rem;
+  background: var(--soot);
+  color: var(--bone);
+  border: 1px solid var(--lead);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+.report__text:focus { outline: none; border-color: var(--brass-dim); }
+.report__close {
+  align-self: flex-end;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+  background: transparent;
+  border: 1px solid var(--lead-hi);
+  border-radius: 2px;
+  padding: 0.42rem 0.7rem;
+  cursor: pointer;
+}
+.report__close:hover { color: var(--brass); border-color: var(--brass-dim); }
+
 /* --- narrow ------------------------------------------------------------ */
 
 @media (max-width: 62em) {
@@ -976,6 +1063,8 @@ mark {
   .passage__stamp { padding-top: 0; }
   .row__no { margin-left: 0; }
   .row__head { flex-wrap: wrap; gap: 0.4rem 0.6rem; }
+  .passage__time { display: inline; margin: 0 0 0 0.5rem; }
+  .head-row { flex-wrap: wrap; gap: 0.7rem; }
   #dateline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dest__menu { left: 0; min-width: min(15rem, 78vw); }
   .colophon__note { margin-left: 0; }
