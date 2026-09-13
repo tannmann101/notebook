@@ -73,8 +73,16 @@ filed there. Inside an entry it picks the thread back up, dated today.
 
 **Composing** starts the moment you click into the writing area. The room dims,
 a lamp comes up, the headline steps aside, and what you type takes its place at
-display scale. Enter files it, Shift+Enter breaks a line, Esc steps back out.
-No modal, no page change, nothing to dismiss.
+display scale. Esc steps back out. No modal, no page change, nothing to dismiss.
+
+Past a couple of lines it stops being a thought and starts being a document, and
+the writing surface follows: display type settles to a reading size at a 64ch
+measure, the controls stick to the bottom of the panel so they don't scroll away
+under a long entry, and **Enter starts a new line while ⌘/Ctrl + Enter files
+it**. Below that it's the other way round — Enter files, Shift+Enter breaks a
+line — because a passing thought should cost one keystroke. The hint line under
+the composer always says which one you're in, and on a phone the Enter button
+does the filing either way.
 
 A **resource** can ride along with the entry. Paste a URL and it becomes a clip
 instead of raw text; paste a screenshot, drop a file anywhere on the window, or

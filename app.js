@@ -31,9 +31,15 @@
   var clips = [];
   var dragDepth = 0;
 
+  /* on a phone there's no modifier key, which is why the Enter button matters */
+  var APPLE = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
+  var FILE_KEY = APPLE ? "⌘ + Enter" : "Ctrl + Enter";
+
   var HINT_REST = "Left unfiled, it stays a floating thought — kept, just not put away.";
   var HINT_WRITE = "Enter files it · Shift + Enter for a new line · Paste or drop to clip · Esc steps back";
   var HINT_PICKUP = "Enter adds it to this entry, dated today · Esc steps back";
+  var HINT_WRITE_LONG = FILE_KEY + " files it · Enter starts a new line · Esc steps back";
+  var HINT_PICKUP_LONG = FILE_KEY + " adds it to this entry · Enter starts a new line · Esc steps back";
 
   var el = {};
   [ "entry-form", "entry", "thesis", "count", "hint", "next-entry", "dest-echo",
@@ -280,8 +286,22 @@
     }
   }
 
+  /* a line or two is a thought; past that it's a document, and it gets set,
+     sized and keyed like one */
+  function longform() {
+    return el.entry.value.length > 160 || el.entry.value.indexOf("\n") > -1;
+  }
+
+  function markLength() {
+    if (longform()) { el.body.dataset.long = "yes"; }
+    else { delete el.body.dataset.long; }
+  }
+
   function restingHint() {
-    if (composing) { return context === "entry" ? HINT_PICKUP : HINT_WRITE; }
+    if (composing) {
+      if (context === "entry") { return longform() ? HINT_PICKUP_LONG : HINT_PICKUP; }
+      return longform() ? HINT_WRITE_LONG : HINT_WRITE;
+    }
     if (context === "entry") { return "Adds a new dated sitting to this entry."; }
     if (context === "book") { return "Anything you write here is filed in " + openBook.name + "."; }
     return HINT_REST;
@@ -1071,14 +1091,26 @@
   el.entry.addEventListener("focus", function () { setMode(true); });
 
   el.entry.addEventListener("input", function () {
+    var was = el.body.dataset.long;
+    markLength();
+    if (was !== el.body.dataset.long &&
+        !el.hint.classList.contains("slate__hint--done")) {
+      el.hint.textContent = restingHint();
+    }
     updateCount();
     grow();
   });
 
   el.entry.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      el.entryForm.requestSubmit();
+    if (event.key === "Enter") {
+      if (event.metaKey || event.ctrlKey) {
+        event.preventDefault();
+        el.entryForm.requestSubmit();
+      } else if (!event.shiftKey && !longform()) {
+        event.preventDefault();
+        el.entryForm.requestSubmit();
+      }
+      /* otherwise it's a new line, which is what a document wants */
     } else if (event.key === "Escape") {
       el.entry.blur();
       setMode(false);
@@ -1120,6 +1152,7 @@
 
     clips = [];
     el.entry.value = "";
+    markLength();
     renderClips();
     updateCount();
     grow();

@@ -271,6 +271,28 @@ body[data-mode="compose"] .slate__area {
   min-height: 4.4em;
 }
 
+/* past a couple of lines it's prose, so it gets set for reading rather than
+   for the headline slot */
+body[data-mode="compose"][data-long="yes"] .slate__area {
+  font-size: 1.1rem;
+  font-stretch: 100%;
+  line-height: 1.72;
+  letter-spacing: normal;
+  max-width: 64ch;
+  min-height: 9em;
+}
+
+/* a long entry pushes these below the fold, so they ride the bottom instead */
+body[data-mode="compose"] .slate__foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0.85rem -1rem -1rem;
+  padding: 0.8rem 1rem;
+  background: var(--panel);
+  border-top: 1px solid var(--lead);
+}
+
 .slate__rule {
   height: 1px;
   margin-top: 0.55rem;
@@ -523,6 +545,18 @@ body[data-drop="on"] .lamp { opacity: 1; }
   border-radius: 2px;
 }
 
+
+/* a pasted URL or a long unbroken run has to fold rather than escape */
+.passage__text,
+.row__title,
+.row__snip,
+.book-head__name,
+.entry-head__title,
+.thesis,
+.slate__area,
+.clip__name,
+.clip__meta,
+.empty { overflow-wrap: break-word; }
 
 /* --- panels --------------------------------------------------------------
 
