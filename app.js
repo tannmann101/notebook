@@ -1418,14 +1418,13 @@
       if (c.href) {
         var href = escapeHtml(c.href);
         var label = escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : ""));
-        var poster = c.thumb || posterFor(c.href);
-
-        /* inline bytes count against the budget; a remote address costs nothing
-           to carry, but only shows up where the reader will go and fetch it */
-        if (poster && c.thumb) {
-          if (spent + c.thumb.length > EMBED_BUDGET) { poster = posterFor(c.href); }
-          else { spent += c.thumb.length; }
-        }
+        /* The remote address, deliberately, not the bytes we hold. Tested on a
+           phone: pasted into Mail and Messages the address gets fetched and the
+           poster appears, while the same picture as an inline data: URI is
+           dropped on the floor. The stored bytes are for the app's own screen,
+           where they also work offline. A clipped photo has no address to give,
+           which is why that one below still has to go inline. */
+        var poster = posterFor(c.href);
 
         out.push("<p>" +
           (poster ? '<a href="' + href + '"><img src="' + escapeHtml(poster) +
