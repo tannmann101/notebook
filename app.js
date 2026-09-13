@@ -45,7 +45,8 @@
     "slot-home", "slot-book", "slot-entry", "book-dye", "book-name",
     "book-entries", "book-empty", "entry-back", "entry-title",
     "entry-meta", "entry-passages", "pickup-date", "colophon",
-    "copy-entry", "copy-book", "copy-all",
+    "copy-entry", "copy-book", "copy-all", "archive-book", "delete-entry",
+    "book-state", "archived-toggle", "archived-books",
     "report", "report-head", "report-text", "report-close"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
@@ -86,6 +87,16 @@
   }
 
   function containers() { return notebooks.concat([floating]); }
+
+  /* archived notebooks keep their entries and stay searchable; they're only
+     out of the index and out of the filing menu */
+  function active() {
+    return notebooks.filter(function (b) { return !b.archived; });
+  }
+
+  function archived() {
+    return notebooks.filter(function (b) { return b.archived; });
+  }
 
   function containerById(id) {
     if (id === "floating" || id === "") { return floating; }
@@ -225,6 +236,7 @@
   }
 
   function setView(name) {
+    if (typeof disarm === "function") { disarm(); }
     view = name;
     el.body.dataset.view = name;
     showViews();
@@ -278,28 +290,40 @@
     renderSelection();
   }
 
+  function bookRow(book) {
+    var li = elem("li", "book");
+    var btn = elem("button", "book__btn");
+    btn.type = "button";
+    btn.dataset.id = book.id;
+
+    var name = elem("span", "book__name");
+    name.appendChild(dyeNode(book.dye));
+    name.appendChild(document.createTextNode(book.name));
+
+    var leader = elem("span", "book__leader");
+    leader.setAttribute("aria-hidden", "true");
+
+    btn.appendChild(name);
+    btn.appendChild(leader);
+    btn.appendChild(elem("span", "book__n stamp", num(book.entries.length)));
+    li.appendChild(btn);
+    return li;
+  }
+
   function renderBooks() {
     el.books.textContent = "";
+    active().forEach(function (book) { el.books.appendChild(bookRow(book)); });
 
-    notebooks.forEach(function (book) {
-      var li = elem("li", "book");
-      var btn = elem("button", "book__btn");
-      btn.type = "button";
-      btn.dataset.id = book.id;
+    var put = archived();
+    el.archivedBooks.textContent = "";
+    put.forEach(function (book) { el.archivedBooks.appendChild(bookRow(book)); });
 
-      var name = elem("span", "book__name");
-      name.appendChild(dyeNode(book.dye));
-      name.appendChild(document.createTextNode(book.name));
-
-      var leader = elem("span", "book__leader");
-      leader.setAttribute("aria-hidden", "true");
-
-      btn.appendChild(name);
-      btn.appendChild(leader);
-      btn.appendChild(elem("span", "book__n stamp", num(book.entries.length)));
-      li.appendChild(btn);
-      el.books.appendChild(li);
-    });
+    el.archivedToggle.hidden = put.length === 0;
+    el.archivedToggle.textContent = put.length + " archived";
+    if (!put.length) {
+      el.archivedBooks.hidden = true;
+      el.archivedToggle.setAttribute("aria-expanded", "false");
+    }
 
     el.booksEmpty.hidden = notebooks.length > 0;
     el.floatN.textContent = num(floating.entries.length);
@@ -325,16 +349,25 @@
     });
 
     el.counts.textContent = "";
-    el.counts.appendChild(countItem("Notebooks", num(notebooks.length)));
+    el.counts.appendChild(countItem("Notebooks", num(active().length)));
     el.counts.appendChild(countItem("Entries", num(entries)));
     el.counts.appendChild(countItem("Words", num(words)));
     el.counts.appendChild(countItem("Kept since", oldest === null ? "—" :
       new Date(oldest).toLocaleDateString(undefined, { month: "short", year: "numeric" })));
   }
 
-  el.books.addEventListener("click", function (event) {
+  function openBookFrom(event) {
     var btn = event.target.closest(".book__btn");
     if (btn) { go("#/n/" + btn.dataset.id); }
+  }
+
+  el.books.addEventListener("click", openBookFrom);
+  el.archivedBooks.addEventListener("click", openBookFrom);
+
+  el.archivedToggle.addEventListener("click", function () {
+    var open = el.archivedBooks.hidden;
+    el.archivedBooks.hidden = !open;
+    el.archivedToggle.setAttribute("aria-expanded", String(open));
   });
 
   el.floatBtn.addEventListener("click", function () { go("#/n/floating"); });
@@ -348,6 +381,10 @@
 
     el.bookDye.className = "dye dye--" + container.dye;
     el.bookName.textContent = container.name;
+    el.bookState.hidden = !container.archived;
+    el.archiveBook.hidden = container.loose;
+    el.archiveBook.querySelector(".copy__label").textContent =
+      container.archived ? "Restore" : "Archive";
     renderBookEntries(container.entries.slice().sort(byRecency));
   }
 
@@ -619,12 +656,12 @@
     }
 
     el.destMenu.appendChild(option(floating, "", "dest__opt--none"));
-    if (notebooks.length) {
+    if (active().length) {
       var sep = elem("li", "dest__sep");
       sep.setAttribute("role", "presentation");
       el.destMenu.appendChild(sep);
     }
-    notebooks.forEach(function (b) { el.destMenu.appendChild(option(b, b.id)); });
+    active().forEach(function (b) { el.destMenu.appendChild(option(b, b.id)); });
   }
 
   function menuOpen() { return el.destBtn.getAttribute("aria-expanded") === "true"; }
@@ -1128,6 +1165,72 @@
   el.report.addEventListener("click", function (event) {
     if (event.target === el.report) { closeReport(); }
   });
+
+  /* --- putting a notebook away, and taking an entry out --------------------
+
+     Archiving is reversible and quiet: the notebook keeps its entries and
+     stays searchable, it just leaves the index and the filing menu. Deleting
+     an entry is neither, so it asks once. */
+
+  el.archiveBook.addEventListener("click", function () {
+    if (openBook.loose) { return; }
+
+    openBook.archived = !openBook.archived;
+    Store.putBook(openBook);
+
+    if (openBook.archived && selected === openBook.id) { selected = ""; }
+
+    renderBooks();
+    renderSelection();
+
+    if (openBook.archived) {
+      var name = openBook.name;
+      go("#/");
+      say(name + " archived · its entries are still here, and still findable");
+    } else {
+      showBook(openBook);
+      say(openBook.name + " is back in the index");
+    }
+  });
+
+  var armed = null;
+
+  function disarm() {
+    if (!armed) { return; }
+    window.clearTimeout(armed);
+    armed = null;
+    el.deleteEntry.classList.remove("copy--armed");
+    el.deleteEntry.querySelector(".copy__label").textContent = "Delete entry";
+  }
+
+  el.deleteEntry.addEventListener("click", function () {
+    if (!armed) {
+      el.deleteEntry.classList.add("copy--armed");
+      el.deleteEntry.querySelector(".copy__label").textContent = "Delete for good?";
+      armed = window.setTimeout(disarm, 5000);
+      return;
+    }
+
+    disarm();
+
+    var entry = openEntry;
+    var container = openBook;
+    var label = entryLabel(entry);
+    var fileIds = [];
+    entry.passages.forEach(function (p) {
+      p.clips.forEach(function (c) { if (c.id) { fileIds.push(c.id); } });
+    });
+
+    container.entries.splice(container.entries.indexOf(entry), 1);
+    Store.dropEntry(entry.n, fileIds);
+    renderBooks();
+
+    go("#/n/" + container.id);
+    say(label + " deleted");
+  });
+
+  /* stepping away from the button un-arms it */
+  el.deleteEntry.addEventListener("blur", disarm);
 
   /* --- a new notebook ----------------------------------------------------- */
 

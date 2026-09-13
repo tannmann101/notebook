@@ -24,6 +24,17 @@ and in search.
 Sittings are stamped with their date. A time appears only when two sittings
 share a day, since that's the only time the date can't tell them apart.
 
+## Putting things away
+
+**Archive** a notebook from its own page. It keeps every entry and stays
+searchable — it just leaves the index and the filing menu, folded behind an
+"n archived" line on the home screen. Open it from there and the same button
+says **Restore**.
+
+**Delete** an entry from its page. It asks once — the button becomes *Delete for
+good?* for five seconds — then removes the entry and any files clipped to it.
+That one doesn't come back.
+
 ## Copying out
 
 Three levels, all plain text with no markup, so it reads the same in a mail
@@ -120,7 +131,9 @@ A machine shop after hours, not a library. Soot ground with a warm olive bias,
 bone ink, brass on the one thing that matters, and a cloth dye per notebook.
 Archivo set tight and slightly condensed does the talking; Spline Sans Mono
 handles anything that counts. The tokens all live at the top of `styles.css`;
-change them there and the page follows.
+change them there and the page follows. Ink contrast against the ground runs
+16:1, 6.9:1 and 4.5:1 for the three levels, so even the smallest datestamp
+clears AA.
 
 Past about 1090px the page becomes two columns: the work runs down the main
 column while an aside holds where you are and what you can do — the notebook

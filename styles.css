@@ -15,18 +15,21 @@
   --soot-deep: #0d0c0b;  /* compose ground */
   --stone:     #1a1815;  /* raised surface */
   --stone-hi:  #201d19;  /* surface, hover */
-  --lead:      #262320;  /* rules, dividers */
-  --lead-hi:   #363129;
+  --lead:      #2b2723;  /* rules, dividers */
+  --lead-hi:   #3d372e;
 
-  /* Ink */
-  --bone:      #e8e2d6;  /* primary */
-  --ash:       #948c80;  /* secondary */
-  --ash-dim:   #6b645b;  /* tertiary */
+  /* Ink — ratios against --soot: 16.1, 6.9, 4.5 */
+  --bone:      #f2ede3;  /* primary */
+  --ash:       #a49c8e;  /* secondary */
+  --ash-dim:   #837b70;  /* tertiary — was below AA for small text */
 
   /* Accents */
-  --brass:     #b98a3c;
-  --brass-hi:  #d8a755;
-  --brass-dim: #6d5326;
+  --brass:     #c4933f;
+  --brass-hi:  #e0b163;
+  --brass-dim: #7d5f2c;
+
+  /* Undoing something, or about to */
+  --warn:      #c87050;
 
   /* Cloth dyes, for telling one notebook from another */
   --dye-brass:     #8a6526;
@@ -996,7 +999,43 @@ mark {
 .copy--done { color: var(--brass); border-color: var(--brass); }
 .copy__mark { flex: 0 0 auto; }
 
-.book-head .copy { margin-left: auto; }
+.head-acts { display: flex; align-items: center; gap: 0.45rem; }
+.book-head .head-acts { margin-left: auto; }
+
+.copy--danger:hover { color: var(--warn); border-color: var(--warn); }
+.copy--armed,
+.copy--armed:hover {
+  color: var(--soot);
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.book-head__state {
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  margin: 0;
+}
+
+/* archived notebooks, folded away under a line */
+.archived__toggle {
+  align-self: flex-start;
+  margin-top: 0.9rem;
+  padding: 0.3rem 0;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.archived__toggle:hover { color: var(--brass); }
+.archived__toggle::before { content: "+ "; }
+.archived__toggle[aria-expanded="true"]::before { content: "– "; }
+
+.books--archived .book__name { color: var(--ash); }
+.books--archived .dye { opacity: 0.5; }
 .colophon .copy { align-self: flex-end; }
 
 .head-row { display: flex; align-items: center; gap: 1rem; }
@@ -1099,12 +1138,18 @@ mark {
   /* the aside is a column now, so its head stacks rather than spreading */
   .book-head { flex-direction: column; align-items: flex-start; gap: 0.85rem; }
   .book-head .dye { width: 100%; height: 3px; }
-  .book-head .copy { margin-left: 0; }
+  .book-head .head-acts,
+  .head-acts {
+    margin-left: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
   .entry-head { align-items: flex-start; gap: 0.75rem; }
   .head-row { display: contents; }
   .entry-head__title { order: 1; }
   .entry-head__meta { order: 2; }
-  .entry-head .copy { order: 3; margin-top: 0.2rem; }
+  .entry-head .head-acts { order: 3; margin-top: 0.2rem; }
 
   /* long-form reading keeps its own measure inside a wider column */
   .passage__text, .floaters__note, .slate__hint { max-width: 62ch; }

@@ -75,6 +75,10 @@
         <ol class="books" id="books"></ol>
         <p class="empty" id="books-empty" hidden>No notebooks yet. Until there is one, everything you write floats.</p>
 
+        <button class="archived__toggle stamp" type="button" id="archived-toggle"
+                aria-expanded="false" hidden></button>
+        <ol class="books books--archived" id="archived-books" hidden></ol>
+
         <button class="book-new" type="button" id="book-new">
           <span class="book-new__plus" aria-hidden="true">+</span>
           <span>New notebook</span>
@@ -101,15 +105,25 @@
 
     <header class="book-head">
       <span class="dye" id="book-dye" aria-hidden="true"></span>
+      <p class="book-head__state stamp" id="book-state" hidden>Archived</p>
       <h1 class="book-head__name" id="book-name">&nbsp;</h1>
-      <button class="copy" type="button" id="copy-book">
-        <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
-          <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
-        </svg>
-        <span class="copy__label">Copy notebook</span>
-      </button>
+      <div class="head-acts">
+        <button class="copy" type="button" id="copy-book">
+          <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
+            <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
+          </svg>
+          <span class="copy__label">Copy notebook</span>
+        </button>
+        <button class="copy" type="button" id="archive-book">
+          <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 7h18M5 7v12a1 1 0 001 1h12a1 1 0 001-1V7M9.5 12h5"></path>
+          </svg>
+          <span class="copy__label">Archive</span>
+        </button>
+      </div>
     </header>
     </aside>
 
@@ -130,14 +144,23 @@
     <header class="entry-head">
       <div class="head-row">
         <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
-        <button class="copy" type="button" id="copy-entry">
-          <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
-            <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
-          </svg>
-          <span class="copy__label">Copy entry</span>
-        </button>
+        <div class="head-acts">
+          <button class="copy" type="button" id="copy-entry">
+            <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="8.5" y="8.5" width="12" height="12" rx="1.5"></rect>
+              <path d="M15.5 4.5h-11a1.5 1.5 0 00-1.5 1.5v11"></path>
+            </svg>
+            <span class="copy__label">Copy entry</span>
+          </button>
+          <button class="copy copy--danger" type="button" id="delete-entry">
+            <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"></path>
+            </svg>
+            <span class="copy__label">Delete entry</span>
+          </button>
+        </div>
       </div>
       <p class="entry-head__meta stamp" id="entry-meta">&nbsp;</p>
     </header>

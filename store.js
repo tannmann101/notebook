@@ -103,6 +103,15 @@
       });
     },
 
+    /* an entry and whatever it was carrying */
+    dropEntry: function (n, fileIds) {
+      return run(["entries", "files"], "readwrite", function (tx) {
+        tx.objectStore("entries").delete(n);
+        var files = tx.objectStore("files");
+        (fileIds || []).forEach(function (id) { files.delete(id); });
+      });
+    },
+
     getFile: function (id) {
       return run(["files"], "readonly", function (tx, done) {
         var request = tx.objectStore("files").get(id);
