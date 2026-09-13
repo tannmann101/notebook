@@ -602,11 +602,11 @@ body[data-drop="on"] .lamp { opacity: 1; }
 .book-head, .entry-head { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .book-head {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.85rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8rem;
 }
-.book-head .dye { height: 1.7rem; width: 4px; }
+.book-head .dye { width: 100%; height: 3px; }
 .book-head__name {
   margin: 0;
   font-size: clamp(1.8rem, 1.2rem + 2.3vw, 2.5rem);
@@ -792,7 +792,7 @@ mark {
 }
 
 /* moving an entry: the same list, anchored to its own button */
-.move { position: relative; display: inline-flex; }
+.move { position: relative; display: inline-flex; flex: 0 0 auto; }
 
 /* the button sits right-aligned until the aside gets its own column, so the
    menu hangs from whichever edge keeps it on screen */
@@ -1063,8 +1063,15 @@ mark {
 .copy--done { color: var(--brass); border-color: var(--brass); }
 .copy__mark { flex: 0 0 auto; }
 
-.head-acts { display: flex; align-items: center; gap: 0.45rem; }
-.book-head .head-acts { margin-left: auto; }
+.head-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+/* a shrinking wrapper is what let these overlap each other */
+.head-acts > * { flex: 0 0 auto; }
 
 .copy--danger:hover { color: var(--warn); border-color: var(--warn); }
 .copy--armed,
@@ -1104,8 +1111,13 @@ mark {
 .books--archived .dye { opacity: 0.5; }
 .colophon__inner .copy { align-self: flex-end; }
 
-.head-row { display: flex; align-items: center; gap: 1rem; }
-.head-row .entry-head__title { flex: 1 1 auto; min-width: 0; }
+.head-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+.head-row .entry-head__title { min-width: 0; }
 
 /* the text itself, for when the clipboard is out of reach */
 .report {
@@ -1203,15 +1215,7 @@ mark {
   }
 
   /* the aside is a column now, so its head stacks rather than spreading */
-  .book-head { flex-direction: column; align-items: flex-start; gap: 0.85rem; }
-  .book-head .dye { width: 100%; height: 3px; }
-  .book-head .head-acts,
-  .head-acts {
-    margin-left: 0;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
+  .head-acts { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .entry-head { align-items: flex-start; gap: 0.75rem; }
   .head-row { display: contents; }
   .entry-head__title { order: 1; }
@@ -1240,7 +1244,7 @@ mark {
   .row__no { margin-left: 0; }
   .row__head { flex-wrap: wrap; gap: 0.4rem 0.6rem; }
   .passage__time { display: inline; margin: 0 0 0 0.5rem; }
-  .head-row { flex-wrap: wrap; gap: 0.7rem; }
+
   #dateline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dest > .dest__menu { left: 0; min-width: min(15rem, 78vw); }
   .colophon__note { margin-left: 0; }
