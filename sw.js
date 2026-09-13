@@ -4,7 +4,7 @@
    Your notes are not in here; they're in IndexedDB, and this never touches
    them. */
 
-var VERSION = "notebook-shell-v1";
+var VERSION = "notebook-shell-v2";
 var FONTS = "notebook-fonts-v1";
 
 var SHELL = [
@@ -37,15 +37,38 @@ self.addEventListener("activate", function (event) {
   );
 });
 
+/* Network first, with the cache as the safety net rather than the default.
+
+   Serving the page from the network but its code from the cache is how you end
+   up running new markup against old script, so everything the app is made of
+   comes from the same place: the network when there is one, the cache when
+   there isn't. A slow connection falls back rather than hanging. */
+var PATIENCE = 3500;
+
 function fromNetworkFirst(request) {
-  return fetch(request).then(function (response) {
+  var fell = false;
+
+  var network = fetch(request).then(function (response) {
     var copy = response.clone();
     caches.open(VERSION).then(function (cache) { cache.put(request, copy); });
     return response;
-  }).catch(function () {
+  });
+
+  var waited = new Promise(function (resolve) {
+    setTimeout(function () {
+      caches.match(request).then(function (hit) {
+        if (hit) { fell = true; resolve(hit); }
+      });
+    }, PATIENCE);
+  });
+
+  return Promise.race([network, waited]).catch(function () {
     return caches.match(request).then(function (hit) {
       return hit || caches.match("./index.html");
     });
+  }).then(function (response) {
+    void fell;
+    return response;
   });
 }
 
@@ -74,10 +97,6 @@ self.addEventListener("fetch", function (event) {
 
   if (url.origin !== self.location.origin) { return; }
 
-  if (request.mode === "navigate") {
-    event.respondWith(fromNetworkFirst(request));
-    return;
-  }
-
-  event.respondWith(fromCacheFirst(request, VERSION));
+  /* the page and the code it runs travel together */
+  event.respondWith(fromNetworkFirst(request));
 });

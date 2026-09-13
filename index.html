@@ -292,6 +292,18 @@
   /* the installed app: cached shell, so it opens without a connection */
   if ("serviceWorker" in navigator && window.top === window.self &&
       window.isSecureContext) {
+    var had = !!navigator.serviceWorker.controller;
+    var reloading = false;
+
+    /* when a new worker takes over, the page is still running the old code —
+       reload once to land on the new one, unless something is half-written */
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      var draft = document.getElementById("entry");
+      if (!had || reloading || (draft && draft.value.trim())) { return; }
+      reloading = true;
+      window.location.reload();
+    });
+
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").catch(function () {});
     });

@@ -162,6 +162,14 @@ the workflow (or push anything) and the site appears at
 Installed, it opens without browser chrome and works with no connection — the
 shell is cached by `sw.js`, and your notes were never remote to begin with.
 
+**Updates** arrive on the next launch with a connection. The page and the code
+it runs are both fetched network-first, with the cache as the fallback rather
+than the default, so a launch can't end up running new markup against old
+script. If a new worker takes over a page that's already open, the page reloads
+itself once — unless something is half-written in the composer, in which case it
+waits. Deploys never touch IndexedDB: your notes are not part of what gets
+cached or replaced.
+
 ## Files
 
 | File | What's in it |
