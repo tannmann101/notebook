@@ -161,6 +161,20 @@
             </svg>
             <span class="copy__label">Copy entry</span>
           </button>
+          <div class="move">
+            <button class="copy" type="button" id="move-btn"
+                    aria-haspopup="listbox" aria-expanded="false">
+              <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M3 6.5h6l2 2.5h10v10.5a1 1 0 01-1 1H4a1 1 0 01-1-1z"></path>
+                <path d="M12 17v-6M9 13.5L12 10.5l3 3"></path>
+              </svg>
+              <span class="copy__label">File in&hellip;</span>
+            </button>
+            <ul class="dest__menu move__menu" id="move-menu" role="listbox"
+                aria-label="File this entry in" hidden></ul>
+          </div>
+
           <button class="copy copy--danger" type="button" id="delete-entry">
             <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">

@@ -26,6 +26,11 @@ share a day, since that's the only time the date can't tell them apart.
 
 ## Putting things away
 
+**File** an entry from its own page — *File in…* offers the same list the
+composer does, so a floating thought becomes an entry in a notebook, a filed one
+moves elsewhere, and anything can go back to floating. The entry keeps its
+number and every sitting; only where it lives changes.
+
 **Archive** a notebook from its own page. It keeps every entry and stays
 searchable — it just leaves the index and the filing menu, folded behind an
 "n archived" line on the home screen. Open it from there and the same button

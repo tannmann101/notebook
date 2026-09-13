@@ -46,7 +46,7 @@
     "book-entries", "book-empty", "entry-back", "entry-title",
     "entry-meta", "entry-passages", "pickup-date", "colophon",
     "copy-entry", "copy-book", "copy-all", "archive-book", "delete-entry",
-    "book-state", "archived-toggle", "archived-books",
+    "book-state", "archived-toggle", "archived-books", "move-btn", "move-menu",
     "report", "report-head", "report-text", "report-close",
     "backup", "restore", "restore-file", "colophon-note"
   ].forEach(function (id) {
@@ -668,88 +668,139 @@
     }
   });
 
-  /* --- destination picker ------------------------------------------------- */
+  /* --- picking a notebook --------------------------------------------------
 
-  function renderMenu() {
-    el.destMenu.textContent = "";
+     Two of these: the composer's, which chooses where the next entry is filed,
+     and the entry's, which moves the one you're looking at. Same list, same
+     keyboard, so they behave alike. */
 
-    function option(item, id, extra) {
-      var li = elem("li", "dest__opt" + (extra ? " " + extra : ""));
-      li.setAttribute("role", "option");
-      li.setAttribute("tabindex", "-1");
-      li.setAttribute("aria-selected", String(selected === id));
-      li.dataset.id = id;
-      li.appendChild(dyeNode(item.dye));
-      li.appendChild(document.createTextNode(item.loose ? "Floating thought" : item.name));
-      return li;
-    }
+  function filingOptions(keep) {
+    var list = [floating];
+    var books = active();
 
-    el.destMenu.appendChild(option(floating, "", "dest__opt--none"));
-    if (active().length) {
-      var sep = elem("li", "dest__sep");
-      sep.setAttribute("role", "presentation");
-      el.destMenu.appendChild(sep);
-    }
-    active().forEach(function (b) { el.destMenu.appendChild(option(b, b.id)); });
+    /* if this entry lives in an archived notebook, still show where it is */
+    var here = keep ? containerById(keep) : null;
+    if (here && !here.loose && here.archived) { books = books.concat([here]); }
+
+    if (books.length) { list.push(null); }   /* null draws the separator */
+    return list.concat(books);
   }
 
-  function menuOpen() { return el.destBtn.getAttribute("aria-expanded") === "true"; }
+  function makePicker(button, menu, config) {
+    function isOpen() { return button.getAttribute("aria-expanded") === "true"; }
 
-  function openMenu() {
-    renderMenu();
-    el.destMenu.hidden = false;
-    el.destBtn.setAttribute("aria-expanded", "true");
-    var active = el.destMenu.querySelector('[aria-selected="true"]') ||
-                 el.destMenu.querySelector(".dest__opt");
-    if (active) { active.focus(); }
-  }
+    function render() {
+      menu.textContent = "";
+      var current = config.current();
 
-  function closeMenu(returnFocus) {
-    el.destMenu.hidden = true;
-    el.destBtn.setAttribute("aria-expanded", "false");
-    if (returnFocus) { el.destBtn.focus(); }
-  }
+      config.options().forEach(function (item) {
+        if (item === null) {
+          var rule = elem("li", "dest__sep");
+          rule.setAttribute("role", "presentation");
+          menu.appendChild(rule);
+          return;
+        }
 
-  function moveInMenu(from, step) {
-    var opts = Array.prototype.slice.call(el.destMenu.querySelectorAll(".dest__opt"));
-    var next = opts[(opts.indexOf(from) + step + opts.length) % opts.length];
-    if (next) { next.focus(); }
-  }
-
-  el.destBtn.addEventListener("click", function () {
-    if (menuOpen()) { closeMenu(false); } else { openMenu(); }
-  });
-
-  el.destBtn.addEventListener("keydown", function (event) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      openMenu();
+        var id = item.loose ? "" : item.id;
+        var li = elem("li", "dest__opt" + (item.loose ? " dest__opt--none" : ""));
+        li.setAttribute("role", "option");
+        li.setAttribute("tabindex", "-1");
+        li.setAttribute("aria-selected", String(current === id));
+        li.dataset.id = id;
+        li.appendChild(dyeNode(item.dye));
+        li.appendChild(document.createTextNode(item.loose ? "Floating thought" : item.name));
+        if (item.archived) { li.appendChild(elem("span", "dest__tag", "archived")); }
+        menu.appendChild(li);
+      });
     }
-  });
 
-  el.destMenu.addEventListener("click", function (event) {
-    var opt = event.target.closest(".dest__opt");
-    if (!opt) { return; }
-    selected = opt.dataset.id;
-    renderSelection();
-    closeMenu(true);
-  });
-
-  el.destMenu.addEventListener("keydown", function (event) {
-    var opt = event.target.closest(".dest__opt");
-    if (!opt) { return; }
-
-    if (event.key === "ArrowDown") { event.preventDefault(); moveInMenu(opt, 1); }
-    else if (event.key === "ArrowUp") { event.preventDefault(); moveInMenu(opt, -1); }
-    else if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      selected = opt.dataset.id;
-      renderSelection();
-      closeMenu(true);
-    } else if (event.key === "Escape" || event.key === "Tab") {
-      closeMenu(true);
+    function open() {
+      render();
+      menu.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      var start = menu.querySelector('[aria-selected="true"]') ||
+                  menu.querySelector(".dest__opt");
+      if (start) { start.focus(); }
     }
+
+    function close(returnFocus) {
+      menu.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      if (returnFocus) { button.focus(); }
+    }
+
+    function step(from, by) {
+      var opts = Array.prototype.slice.call(menu.querySelectorAll(".dest__opt"));
+      var next = opts[(opts.indexOf(from) + by + opts.length) % opts.length];
+      if (next) { next.focus(); }
+    }
+
+    function pick(opt) {
+      var id = opt.dataset.id;
+      close(true);
+      config.pick(id);
+    }
+
+    button.addEventListener("click", function () {
+      if (isOpen()) { close(false); } else { open(); }
+    });
+
+    button.addEventListener("keydown", function (event) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        open();
+      }
+    });
+
+    menu.addEventListener("click", function (event) {
+      var opt = event.target.closest(".dest__opt");
+      if (opt) { pick(opt); }
+    });
+
+    menu.addEventListener("keydown", function (event) {
+      var opt = event.target.closest(".dest__opt");
+      if (!opt) { return; }
+
+      if (event.key === "ArrowDown") { event.preventDefault(); step(opt, 1); }
+      else if (event.key === "ArrowUp") { event.preventDefault(); step(opt, -1); }
+      else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pick(opt); }
+      else if (event.key === "Escape" || event.key === "Tab") { close(true); }
+    });
+
+    return { isOpen: isOpen, close: close, within: config.within };
+  }
+
+  var destPicker = makePicker(el.destBtn, el.destMenu, {
+    within: ".dest",
+    options: function () { return filingOptions(); },
+    current: function () { return selected; },
+    pick: function (id) { selected = id; renderSelection(); }
   });
+
+  /* moving the entry you're looking at — a floating thought into a notebook,
+     or a filed one somewhere else, or back out to floating */
+  var movePicker = makePicker(el.moveBtn, el.moveMenu, {
+    within: ".move",
+    options: function () { return filingOptions(openBook && openBook.id); },
+    current: function () { return openBook && !openBook.loose ? openBook.id : ""; },
+    pick: function (id) { fileEntry(id); }
+  });
+
+  function fileEntry(id) {
+    var to = containerById(id) || floating;
+    var from = openBook;
+    if (!openEntry || to === from) { return; }
+
+    from.entries.splice(from.entries.indexOf(openEntry), 1);
+    to.entries.push(openEntry);
+    save(openEntry, to);
+
+    renderBooks();
+    showEntry(openEntry, to);
+    say(entryLabel(openEntry) + (to.loose
+      ? " is floating again"
+      : " filed in " + to.name));
+  }
 
   function renderSelection() {
     var book = containerById(selected) || floating;
@@ -1023,7 +1074,8 @@
   });
 
   document.addEventListener("mousedown", function (event) {
-    if (menuOpen() && !event.target.closest(".dest")) { closeMenu(false); }
+    if (destPicker.isOpen() && !event.target.closest(".dest")) { destPicker.close(false); }
+    if (movePicker.isOpen() && !event.target.closest(".move")) { movePicker.close(false); }
     if (composing && !event.target.closest(".composer") &&
         !event.target.closest(".pickup")) {
       el.entry.blur();

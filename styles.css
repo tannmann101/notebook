@@ -372,8 +372,11 @@ body[data-mode="compose"] .slate__area {
 .dest__opt[aria-selected="true"]::after {
   content: "•";
   margin-left: auto;
+  padding-left: 0.6rem;
   color: var(--brass);
 }
+.dest__opt[aria-selected="true"] .dest__tag { margin-left: auto; }
+.dest__opt[aria-selected="true"] .dest__tag ~ ::after { margin-left: 0; }
 .dest__opt--none { color: var(--ash); font-style: italic; }
 .dest__sep { height: 1px; margin: 0.3rem 0.2rem; background: var(--lead); }
 
@@ -779,6 +782,26 @@ mark {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* moving an entry: the same list, anchored to its own button */
+.move { position: relative; display: inline-flex; }
+
+/* the button sits right-aligned until the aside gets its own column, so the
+   menu hangs from whichever edge keeps it on screen */
+.move__menu { left: auto; right: 0; min-width: min(12.5rem, 72vw); }
+@media (min-width: 68em) {
+  .move__menu { left: 0; right: auto; }
+}
+
+.dest__tag {
+  margin-left: auto;
+  padding-left: 0.6rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+}
+.dest__opt[aria-selected="true"] .dest__tag { color: var(--brass-dim); }
 
 /* --- the notebook index ------------------------------------------------ */
 
@@ -1211,7 +1234,7 @@ mark {
   .passage__time { display: inline; margin: 0 0 0 0.5rem; }
   .head-row { flex-wrap: wrap; gap: 0.7rem; }
   #dateline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dest__menu { left: 0; min-width: min(15rem, 78vw); }
+  .dest > .dest__menu { left: 0; min-width: min(15rem, 78vw); }
   .colophon__note { margin-left: 0; }
 }
 
