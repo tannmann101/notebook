@@ -16,6 +16,10 @@ An **entry** is a thread, not a note. It opens with a line and accumulates dated
 that day and added to the same thread. An entry lives in a notebook, or it
 floats.
 
+Entries are numbered in one sequence across the whole notebook — `Entry 0059` —
+and the next entry takes the next number wherever it's filed. The number is the
+entry's name; its opening line does the describing, in lists and in search.
+
 **Home** is the index: notebooks with their entry counts, and a panel for
 floating thoughts. **A notebook** lists its entries, newest touched first.
 **An entry** shows its sittings in order, oldest at the top, with today's

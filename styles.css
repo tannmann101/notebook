@@ -675,7 +675,7 @@ mark {
 .row__stamp { color: var(--ash-dim); }
 .row__where { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ash); }
 .row__where .dye { height: 11px; }
-.row__folio { margin-left: auto; color: var(--ash-dim); }
+.row__no { margin-left: auto; color: var(--ash-dim); }
 
 .row__title {
   margin: 0 0 0.2rem;
@@ -974,7 +974,7 @@ mark {
   .rail__find { flex-basis: 100%; max-width: none; margin-left: 0; }
   .passage { grid-template-columns: 1fr; gap: 0.5rem; }
   .passage__stamp { padding-top: 0; }
-  .row__folio { margin-left: 0; }
+  .row__no { margin-left: 0; }
   .row__head { flex-wrap: wrap; gap: 0.4rem 0.6rem; }
   #dateline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dest__menu { left: 0; min-width: min(15rem, 78vw); }

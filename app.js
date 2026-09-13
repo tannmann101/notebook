@@ -36,14 +36,14 @@
   var HINT_PICKUP = "Enter adds it to this entry, dated today · Esc steps back";
 
   var el = {};
-  [ "entry-form", "entry", "thesis", "count", "hint", "next-folio", "dest-echo",
+  [ "entry-form", "entry", "thesis", "count", "hint", "next-entry", "dest-echo",
     "dest", "dest-btn", "dest-dye", "dest-name", "dest-menu", "dest-fixed",
     "books", "book-new", "float-btn", "float-n",
     "counts", "clips", "attach-btn", "file-input", "dateline", "composer",
     "view-home", "view-book", "view-entry", "results",
     "find", "find-n", "find-scope", "results-head", "results-list", "results-empty",
     "slot-home", "slot-book", "slot-entry", "book-dye", "book-name",
-    "book-entries", "book-empty", "entry-back", "entry-folio", "entry-title",
+    "book-entries", "book-empty", "entry-back", "entry-title",
     "entry-meta", "entry-passages", "pickup-date", "colophon"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
@@ -91,11 +91,11 @@
     return null;
   }
 
-  function findEntry(folio) {
+  function findEntry(n) {
     var found = null;
     containers().forEach(function (c) {
       c.entries.forEach(function (e) {
-        if (e.folio === folio) { found = { entry: e, container: c }; }
+        if (e.n === n) { found = { entry: e, container: c }; }
       });
     });
     return found;
@@ -152,15 +152,18 @@
 
   function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
 
-  function nextFolio() {
+  function entryNo(entry) { return String(entry.n).padStart(4, "0"); }
+
+  function entryLabel(entry) { return "Entry " + entryNo(entry); }
+
+  /* one sequence for the whole notebook: the next entry anywhere takes the
+     next number, whatever it ends up filed in */
+  function nextNumber() {
     var top = 0;
     containers().forEach(function (c) {
-      c.entries.forEach(function (e) {
-        var n = parseInt(e.folio.replace("F.", ""), 10);
-        if (n > top) { top = n; }
-      });
+      c.entries.forEach(function (e) { if (e.n > top) { top = e.n; } });
     });
-    return "F." + String(top + 1).padStart(3, "0");
+    return top + 1;
   }
 
   function dyeNode(name) {
@@ -200,7 +203,7 @@
       if (container) { showBook(container); return; }
     }
     if (parts[0] === "e" && parts[1]) {
-      var hit = findEntry(decodeURIComponent(parts[1]).toUpperCase());
+      var hit = findEntry(parseInt(parts[1], 10));
       if (hit) { showEntry(hit.entry, hit.container); return; }
     }
     showHome();
@@ -234,7 +237,7 @@
     if (which === "book") {
       el.destFixed.textContent = "→ " + openBook.name;
     } else if (onEntry) {
-      el.destFixed.textContent = "→ picking up " + openEntry.folio;
+      el.destFixed.textContent = "→ " + entryLabel(openEntry);
     }
 
     el.entry.placeholder = onEntry
@@ -256,7 +259,7 @@
   function showHome() {
     setView("home");
     moveComposer(el.slotHome, "home");
-    el.nextFolio.textContent = nextFolio();
+    el.nextEntry.textContent = String(nextNumber()).padStart(4, "0");
     renderBooks();
     renderSelection();
   }
@@ -337,7 +340,7 @@
     var li = elem("li", "row");
     var btn = elem("button", "row__btn");
     btn.type = "button";
-    btn.dataset.folio = entry.folio;
+    btn.dataset.n = entry.n;
 
     var head = elem("div", "row__head");
     head.appendChild(elem("span", "row__stamp stamp", stamp(entryTouched(entry))));
@@ -347,7 +350,7 @@
       where.appendChild(document.createTextNode(container.loose ? "floating" : container.name));
       head.appendChild(where);
     }
-    head.appendChild(elem("span", "row__folio stamp", entry.folio));
+    head.appendChild(elem("span", "row__no stamp", entryNo(entry)));
 
     var body = elem("div", "row__body");
     body.appendChild(elem("h3", "row__title", titleOf(entry)));
@@ -380,7 +383,7 @@
 
   el.bookEntries.addEventListener("click", function (event) {
     var btn = event.target.closest(".row__btn");
-    if (btn) { go("#/e/" + btn.dataset.folio); }
+    if (btn) { go("#/e/" + btn.dataset.n); }
   });
 
   /* --- an entry ----------------------------------------------------------- */
@@ -395,8 +398,7 @@
     el.entryBack.appendChild(elem("span", null, "←"));
     el.entryBack.appendChild(document.createTextNode(" " + container.name));
 
-    el.entryFolio.textContent = "Entry " + entry.folio;
-    el.entryTitle.textContent = titleOf(entry);
+    el.entryTitle.textContent = entryLabel(entry);
     el.entryMeta.textContent = "Started " + stamp(entryStarted(entry));
 
     renderPassages();
@@ -551,7 +553,7 @@
       scope = null;
       renderScope();
       el.findN.textContent = "";
-      go("#/e/" + btn.dataset.folio);
+      go("#/e/" + btn.dataset.n);
     }
   });
 
@@ -851,15 +853,15 @@
     requestAnimationFrame(grow);
   }
 
-  function say(message, folio) {
+  function say(message, n) {
     window.clearTimeout(hintTimer);
     el.hint.textContent = message;
     el.hint.classList.add("slate__hint--done");
 
-    if (folio) {
+    if (n) {
       var link = document.createElement("a");
       link.className = "hint__open";
-      link.href = "#/e/" + folio;
+      link.href = "#/e/" + n;
       link.textContent = "Open";
       el.hint.appendChild(document.createTextNode(" "));
       el.hint.appendChild(link);
@@ -913,6 +915,7 @@
 
     var words = wordsIn(text);
     var clipped = clips.length ? " · " + clipCount() : "";
+    var counted = words ? " · " + words + " w" : "";
     var passage = {
       daysAgo: 0,
       text: text || clips[0].name,
@@ -930,26 +933,25 @@
     if (context === "entry") {
       openEntry.passages.push(passage);
       renderPassages();
-      say("Added to " + openEntry.folio + " · " + words + " w" + clipped);
+      say("Added to " + entryLabel(openEntry) + counted + clipped);
       el.entry.focus();
       return;
     }
 
     var container = context === "book" ? openBook : containerById(selected);
-    var entry = { folio: nextFolio(), passages: [passage] };
+    var entry = { n: nextNumber(), passages: [passage] };
     container.entries.push(entry);
 
     if (context === "book") {
       renderBookEntries(container.entries.slice().sort(byRecency));
-      say(entry.folio + " started in " + container.name + " · " + words + " w" + clipped,
-        entry.folio);
+      say(entryLabel(entry) + " started in " + container.name + counted + clipped, entry.n);
     } else {
       renderBooks();
-      el.nextFolio.textContent = nextFolio();
+      el.nextEntry.textContent = String(nextNumber()).padStart(4, "0");
       say(container.loose
-        ? entry.folio + " left floating · " + words + " w" + clipped
-        : entry.folio + " → " + container.name + " · " + words + " w" + clipped,
-        entry.folio);
+        ? entryLabel(entry) + " left floating" + counted + clipped
+        : entryLabel(entry) + " → " + container.name + counted + clipped,
+        entry.n);
     }
 
     el.entry.focus();
