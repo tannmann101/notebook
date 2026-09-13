@@ -974,7 +974,13 @@ mark {
 }
 .counts__all:hover { color: var(--brass); border-color: var(--brass-dim); }
 
-.colophon__note { margin: 0 0 0 auto; font-size: 0.78rem; color: var(--ash-dim); }
+.colophon__note {
+  margin: 0 0 0 auto;
+  max-width: 34ch;
+  font-size: 0.78rem;
+  color: var(--ash-dim);
+}
+.colophon__note--warn { color: var(--warn); }
 
 /* --- copying out -------------------------------------------------------- */
 

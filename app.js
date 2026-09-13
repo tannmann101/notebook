@@ -47,7 +47,8 @@
     "entry-meta", "entry-passages", "pickup-date", "colophon",
     "copy-entry", "copy-book", "copy-all", "archive-book", "delete-entry",
     "book-state", "archived-toggle", "archived-books",
-    "report", "report-head", "report-text", "report-close"
+    "report", "report-head", "report-text", "report-close",
+    "backup", "restore", "restore-file", "colophon-note"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
       document.getElementById(id);
@@ -204,6 +205,7 @@
     Store.putEntry(entry).catch(function (err) {
       say("Couldn't save that — " + (err && err.name ? err.name : "storage error"));
     });
+    refreshUsage();
   }
 
   /* --- routing ------------------------------------------------------------ */
@@ -337,6 +339,32 @@
     return wrap;
   }
 
+  var onDisk = "";
+  var persisted = null;
+  var usageTimer = null;
+
+  function refreshUsage() {
+    window.clearTimeout(usageTimer);
+    usageTimer = window.setTimeout(function () {
+      Store.usage().then(function (estimate) {
+        if (!estimate || !estimate.usage) { return; }
+        onDisk = formatSize(estimate.usage);
+        if (view === "home") { renderCounts(); }
+      });
+    }, 600);
+  }
+
+  function renderNote() {
+    el.colophonNote.textContent = "Kept in this browser, on this device. Nothing is uploaded.";
+    el.colophonNote.classList.remove("colophon__note--warn");
+
+    if (persisted === false) {
+      el.colophonNote.textContent =
+        "Kept here, but the browser hasn't promised to keep it — add this to your home screen or dock so it isn't cleared.";
+      el.colophonNote.classList.add("colophon__note--warn");
+    }
+  }
+
   function renderCounts() {
     var entries = 0, words = 0, oldest = null;
     containers().forEach(function (c) {
@@ -354,6 +382,7 @@
     el.counts.appendChild(countItem("Words", num(words)));
     el.counts.appendChild(countItem("Kept since", oldest === null ? "—" :
       new Date(oldest).toLocaleDateString(undefined, { month: "short", year: "numeric" })));
+    if (onDisk) { el.counts.appendChild(countItem("On disk", onDisk)); }
   }
 
   function openBookFrom(event) {
@@ -762,6 +791,33 @@
     return "FILE";
   }
 
+  /* A thumbnail is a 320px rendering, about 20 KB. Reading the whole file as
+     a data URL would store the image a second time, a third larger than the
+     original — which is what this used to do. */
+  function thumbnail(file, done) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+
+    img.onload = function () {
+      var scale = Math.min(1, 320 / Math.max(img.width, img.height));
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+
+      try {
+        done(canvas.toDataURL("image/jpeg", 0.72));
+      } catch (err) {
+        done(null);   /* tainted or out of memory — the kind mark will do */
+      }
+    };
+
+    /* formats the browser can't decode (HEIC on some devices) just get a mark */
+    img.onerror = function () { URL.revokeObjectURL(url); done(null); };
+    img.src = url;
+  }
+
   function clipCount() {
     return clips.length + (clips.length === 1 ? " clip" : " clips");
   }
@@ -805,10 +861,11 @@
       clips.push(clip);
       Store.putFile(clip.id, file);
 
-      if (file.type.indexOf("image/") === 0 && file.size < 8 * 1024 * 1024) {
-        var reader = new FileReader();
-        reader.onload = function () { clip.thumb = reader.result; renderClips(); };
-        reader.readAsDataURL(file);
+      if (file.type.indexOf("image/") === 0 && file.size < 25 * 1024 * 1024) {
+        thumbnail(file, function (thumb) {
+          clip.thumb = thumb;
+          renderClips();
+        });
       }
     });
     afterClips();
@@ -1224,6 +1281,7 @@
     container.entries.splice(container.entries.indexOf(entry), 1);
     Store.dropEntry(entry.n, fileIds);
     renderBooks();
+    refreshUsage();
 
     go("#/n/" + container.id);
     say(label + " deleted");
@@ -1231,6 +1289,159 @@
 
   /* stepping away from the button un-arms it */
   el.deleteEntry.addEventListener("blur", disarm);
+
+  /* --- backup and restore -------------------------------------------------
+
+     One JSON file with the notebooks, the entries and the attached files
+     base64'd inline. Restoring merges rather than replaces: nothing you
+     already have is overwritten, and an incoming entry only gets a new number
+     if its own is already taken. */
+
+  var BACKUP_VERSION = 1;
+
+  function blobToData(blob) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { resolve(null); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function dataToBlob(data) {
+    return fetch(data).then(function (r) { return r.blob(); });
+  }
+
+  function backupName() {
+    var d = new Date();
+    return "notebook-" + d.getFullYear() + "-" +
+      String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0") + ".json";
+  }
+
+  el.backup.addEventListener("click", function () {
+    flash(el.backup, "Packing…");
+
+    Promise.all([Store.load(), Store.allFiles()]).then(function (both) {
+      var stored = both[0];
+      var files = both[1];
+
+      return Promise.all(files.map(function (file) {
+        return blobToData(file.blob).then(function (data) {
+          return data ? { id: file.id, data: data } : null;
+        });
+      })).then(function (packed) {
+        var payload = {
+          format: "notebook-backup",
+          version: BACKUP_VERSION,
+          made: new Date().toISOString(),
+          books: stored.books,
+          entries: stored.entries,
+          files: packed.filter(Boolean)
+        };
+
+        var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = backupName();
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+
+        say(stored.entries.length + (stored.entries.length === 1 ? " entry" : " entries") +
+            " and " + payload.files.length +
+            (payload.files.length === 1 ? " file" : " files") + " backed up");
+      });
+    }).catch(function () {
+      say("Couldn't build the backup");
+    });
+  });
+
+  el.restore.addEventListener("click", function () { el.restoreFile.click(); });
+
+  el.restoreFile.addEventListener("change", function () {
+    var file = el.restoreFile.files[0];
+    el.restoreFile.value = "";
+    if (!file) { return; }
+
+    file.text().then(function (text) {
+      var payload = JSON.parse(text);
+      if (payload.format !== "notebook-backup") {
+        throw new Error("not a notebook backup");
+      }
+      return merge(payload);
+    }).catch(function (err) {
+      say("That file isn't a notebook backup" +
+          (err && err.message === "not a notebook backup" ? "" : " — it wouldn't parse"));
+    });
+  });
+
+  function merge(payload) {
+    var addedBooks = 0;
+    var addedEntries = 0;
+    var renumbered = 0;
+
+    var newBooks = [];
+    (payload.books || []).forEach(function (book) {
+      if (containerById(book.id)) { return; }   /* already here, leave it alone */
+      var mine = { id: book.id, name: book.name, dye: book.dye,
+                   order: book.order, archived: !!book.archived, entries: [] };
+      notebooks.push(mine);
+      newBooks.push(book);
+      addedBooks += 1;
+    });
+
+    var taken = {};
+    containers().forEach(function (c) {
+      c.entries.forEach(function (e) { taken[e.n] = true; });
+    });
+
+    var next = nextNumber();
+    var newEntries = [];
+
+    (payload.entries || []).forEach(function (entry) {
+      if (!entry.passages || !entry.passages.length) { return; }
+
+      var n = entry.n;
+      if (taken[n]) { n = next; next += 1; renumbered += 1; }
+      taken[n] = true;
+
+      var mine = { n: n, book: entry.book || "", passages: entry.passages };
+      var container = containerById(mine.book) || floating;
+      container.entries.push(mine);
+      newEntries.push(mine);
+      addedEntries += 1;
+    });
+
+    return Promise.all((payload.files || []).map(function (file) {
+      return dataToBlob(file.data).then(function (blob) {
+        return { id: file.id, blob: blob };
+      }).catch(function () { return null; });
+    })).then(function (files) {
+      return Store.restore(newBooks, newEntries, files.filter(Boolean));
+    }).then(function () {
+      renderBooks();
+      renderSelection();
+      refreshUsage();
+      route();
+
+      var parts = [];
+      if (addedEntries) {
+        parts.push(addedEntries + (addedEntries === 1 ? " entry" : " entries"));
+      }
+      if (addedBooks) {
+        parts.push(addedBooks + (addedBooks === 1 ? " notebook" : " notebooks"));
+      }
+      if (!parts.length) { say("Nothing new in that backup"); return; }
+
+      say("Restored " + parts.join(" and ") +
+          (renumbered ? " · " + renumbered + " renumbered around what was already here" : ""));
+    }).catch(function () {
+      say("Couldn't write that backup into storage");
+    });
+  }
 
   /* --- a new notebook ----------------------------------------------------- */
 
@@ -1351,6 +1562,13 @@
     say("Storage isn't available here, so nothing will be kept after you close this.");
   }).then(function () {
     el.body.dataset.ready = "yes";
+
+    Store.persist().then(function (granted) {
+      persisted = granted;
+      renderNote();
+    });
+    refreshUsage();
+
     renderClips();
     updateCount();
     route();

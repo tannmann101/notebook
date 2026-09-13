@@ -188,7 +188,23 @@
     </svg>
     <span class="copy__label">Copy everything</span>
   </button>
-  <p class="colophon__note">Kept in this browser, on this device. Nothing is uploaded.</p>
+  <button class="copy" type="button" id="backup">
+    <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M12 3v12M7.5 10.5L12 15l4.5-4.5M4 19h16"></path>
+    </svg>
+    <span class="copy__label">Back up</span>
+  </button>
+  <button class="copy" type="button" id="restore">
+    <svg class="copy__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M12 15V3M7.5 7.5L12 3l4.5 4.5M4 19h16"></path>
+    </svg>
+    <span class="copy__label">Restore</span>
+  </button>
+  <input class="visually-hidden" type="file" id="restore-file" accept="application/json,.json">
+
+  <p class="colophon__note" id="colophon-note">Kept in this browser, on this device. Nothing is uploaded.</p>
 </footer>
 
 <div class="report" id="report" hidden>

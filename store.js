@@ -121,6 +121,39 @@
       });
     },
 
+    /* Ask the browser not to evict us. Chrome grants this to installed or
+       well-used sites; Safari grants it to home-screen apps. Without it the
+       data is "best-effort" and can be cleared under disk pressure. */
+    persist: function () {
+      if (!navigator.storage || !navigator.storage.persist) {
+        return Promise.resolve(null);
+      }
+      return navigator.storage.persisted().then(function (already) {
+        return already ? true : navigator.storage.persist();
+      }).catch(function () { return null; });
+    },
+
+    usage: function () {
+      if (!navigator.storage || !navigator.storage.estimate) {
+        return Promise.resolve(null);
+      }
+      return navigator.storage.estimate().catch(function () { return null; });
+    },
+
+    allFiles: function () { return all("files"); },
+
+    /* One transaction, so a restore either lands or doesn't */
+    restore: function (books, entries, files) {
+      return run(["books", "entries", "files"], "readwrite", function (tx) {
+        var b = tx.objectStore("books");
+        var e = tx.objectStore("entries");
+        var f = tx.objectStore("files");
+        books.forEach(function (book) { b.put(book); });
+        entries.forEach(function (entry) { e.put(entry); });
+        files.forEach(function (file) { f.put(file); });
+      });
+    },
+
     /* for the export, and for proving the data is really yours */
     wipe: function () {
       return run(["books", "entries", "files"], "readwrite", function (tx) {

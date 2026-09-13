@@ -80,9 +80,30 @@ uploaded, there is no account, and there is no server to go down. The site
 itself is public; your notes are not on it.
 
 The flip side: **there is no sync.** A notebook written on the laptop is not the
-notebook on the phone. Each install keeps its own. Clearing the browser's site
-data for the domain erases it, so use **Copy everything** if you want a copy
-somewhere else.
+notebook on the phone. Each install keeps its own — which is the point, if you
+take notes differently on each.
+
+The boundary is origin + browser + container, not device: a different browser on
+the same machine is a different notebook, and on iOS a home-screen app keeps its
+own storage apart from Safari. Pick one per device and stay in it.
+
+**Room.** Text is effectively free — a sitting is a few hundred bytes, a
+thousand entries about a megabyte. Attachments are the whole budget. The
+colophon shows what's actually on disk.
+
+**Keeping it.** At boot the app calls `navigator.storage.persist()`, which asks
+the browser not to evict the data under disk pressure. Browsers grant it to
+installed and well-used sites; Safari also clears script-writable storage after
+seven days of not opening a site, and home-screen apps are exempt. If the
+request is refused the colophon says so in orange. **Installing it is what
+protects the notes**, not a nicety.
+
+**Backup.** *Back up* writes a single JSON file with the notebooks, the entries
+and the attached files inline. *Restore* merges it back: nothing already there
+is overwritten, and an incoming entry only takes a new number if its own is
+already in use — so restoring onto a fresh device gives the numbers back
+unchanged, and restoring onto a device that already has notes adds to them
+instead of colliding.
 
 ## Running it
 
