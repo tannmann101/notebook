@@ -521,12 +521,17 @@
 
   function clipNode(clip, still) {
     var li = elem("li", "clip" + (still ? " clip--still" : ""));
+    var picture = clip.thumb || posterFor(clip.href);
 
-    if (clip.thumb) {
+    if (picture) {
       var img = document.createElement("img");
       img.className = "clip__thumb";
-      img.src = clip.thumb;
+      img.src = picture;
       img.alt = "";
+      /* a remote poster may not load — offline, or the video is gone */
+      img.addEventListener("error", function () {
+        img.replaceWith(elem("span", "clip__mark", clip.mark));
+      });
       li.appendChild(img);
     } else {
       li.appendChild(elem("span", "clip__mark", clip.mark));
@@ -911,6 +916,37 @@
     if (!composing) { setMode(true); }
     el.entry.focus();
     grow();
+  }
+
+  /* Some links keep a picture at a guessable address. YouTube is the only one
+     worth doing without a server — anything else would mean fetching the page
+     and reading its og:image, which a browser isn't allowed to do across
+     origins. Derived at render time, so links clipped before this works too. */
+  function posterFor(href) {
+    if (!href) { return null; }
+
+    var id = null;
+    try {
+      var url = new URL(href);
+      var host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+
+      if (host === "youtu.be") {
+        id = url.pathname.slice(1).split("/")[0];
+      } else if (host === "youtube.com" || host === "music.youtube.com") {
+        if (url.pathname === "/watch") { id = url.searchParams.get("v"); }
+        else if (url.pathname.indexOf("/shorts/") === 0) { id = url.pathname.slice(8).split("/")[0]; }
+        else if (url.pathname.indexOf("/embed/") === 0) { id = url.pathname.slice(7).split("/")[0]; }
+        else if (url.pathname.indexOf("/live/") === 0) { id = url.pathname.slice(6).split("/")[0]; }
+      }
+    } catch (err) {
+      return null;
+    }
+
+    if (!id || !/^[\w-]{6,20}$/.test(id)) { return null; }
+    /* mqdefault is the largest size that always exists and is true 16:9 —
+       hqdefault letterboxes, maxresdefault is missing on plenty of videos,
+       and a broken image in someone else's inbox is worse than a small one */
+    return "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
   }
 
   function addLink(raw) {
@@ -1302,8 +1338,15 @@
 
       var c = b.clip;
       if (c.href) {
-        out.push('<p><a href="' + escapeHtml(c.href) + '">' +
-                 escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : "")) + "</a></p>");
+        var href = escapeHtml(c.href);
+        var label = escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : ""));
+        var poster = posterFor(c.href);
+
+        out.push("<p>" +
+          (poster ? '<a href="' + href + '"><img src="' + escapeHtml(poster) +
+                    '" alt="" width="320" style="max-width:320px;height:auto' +
+                    ';border-radius:3px"></a><br>' : "") +
+          '<a href="' + href + '">' + label + "</a></p>");
         return;
       }
 

@@ -4,7 +4,7 @@
    Your notes are not in here; they're in IndexedDB, and this never touches
    them. */
 
-var VERSION = "notebook-shell-v2";
+var VERSION = "notebook-shell-v3";
 var FONTS = "notebook-fonts-v1";
 
 var SHELL = [
