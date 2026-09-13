@@ -1491,13 +1491,14 @@
     var spent = 0;
     var shown = Object.create(null);   /* one poster per video within a sitting */
 
-    /* Bytes beat an address. Nothing that receives a paste will go and fetch a
-       remote image — not Messages, not Notes — so the picture has to travel
-       with the text or it doesn't arrive. The address is the last resort, for
-       when the fetch was refused and there are no bytes to send. */
+    /* Bytes or nothing. Nothing that receives a paste goes and fetches a remote
+       image, so sending the address produced an empty frame sitting above the
+       link — worse to look at than the link on its own. A reader that would
+       have fetched it loses a picture; that trade goes to the phone, which is
+       where these get sent. */
     function pick(poster, stored) {
       var data = stored || posterCache[poster];
-      if (!data || spent + data.length > EMBED_BUDGET) { return poster; }
+      if (!data || spent + data.length > EMBED_BUDGET) { return null; }
       spent += data.length;
       return data;
     }
@@ -1518,7 +1519,9 @@
           var poster = posterFor(url);
           if (!poster || shown[poster]) { return; }
           shown[poster] = true;
-          out.push("<p>" + posterHtml(url, pick(poster)) + "</p>");
+
+          var src = pick(poster);
+          if (src) { out.push("<p>" + posterHtml(url, src) + "</p>"); }
         });
         return;
       }
@@ -1537,8 +1540,10 @@
         if (poster && shown[poster]) { poster = null; }
         if (poster) { shown[poster] = true; }
 
+        var src = poster ? pick(poster, c.thumb) : null;
+
         out.push("<p>" +
-          (poster ? posterHtml(c.href, pick(poster, c.thumb)) + "<br>" : "") +
+          (src ? posterHtml(c.href, src) + "<br>" : "") +
           '<a href="' + href + '">' + label + "</a></p>");
         return;
       }
