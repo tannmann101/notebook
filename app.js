@@ -34,7 +34,7 @@
   var composing = false;
 
   var HINT_REST = "Left unfiled, it stays a floating thought — kept, just not put away.";
-  var HINT_WRITE = "Enter files it · Shift + Enter for a new line · Esc steps back";
+  var HINT_WRITE = "Enter files it · Shift + Enter for a new line · Paste or drop to clip · Esc steps back";
 
   /* --- elements ---------------------------------------------------------- */
 
@@ -59,6 +59,9 @@
     floatN: document.getElementById("float-n"),
     floatW: document.getElementById("float-w"),
     counts: document.getElementById("counts"),
+    clips: document.getElementById("clips"),
+    attachBtn: document.getElementById("attach-btn"),
+    fileInput: document.getElementById("file-input"),
     dateline: document.getElementById("dateline"),
     open: document.querySelector(".open")
   };
@@ -347,7 +350,7 @@
   el.area.addEventListener("focus", function () { setMode(true); });
 
   el.area.addEventListener("input", function () {
-    el.count.textContent = wordsIn(el.area.value) + " w";
+    updateCount();
     grow();
   });
 
@@ -370,15 +373,227 @@
     }
   });
 
+  /* --- clipped resources --------------------------------------------------
+
+     A link or a file rides along with the entry. Paste a URL, paste a
+     screenshot, drop a file anywhere on the window, or use Attach. Nothing
+     here is uploaded — we hold the name, kind and size until storage lands. */
+
+  var clips = [];
+  var dragDepth = 0;
+
+  function isUrl(text) {
+    return /^(https?:\/\/|www\.)\S+$/i.test(text.trim());
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) { return bytes + " B"; }
+    var units = ["KB", "MB", "GB"];
+    var n = bytes / 1024;
+    var i = 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
+    return (n < 10 ? n.toFixed(1) : Math.round(n)) + " " + units[i];
+  }
+
+  function markFor(file) {
+    var type = file.type || "";
+    if (type.indexOf("image/") === 0) { return "IMG"; }
+    if (type === "application/pdf") { return "PDF"; }
+    if (type.indexOf("audio/") === 0) { return "AUD"; }
+    if (type.indexOf("video/") === 0) { return "VID"; }
+    if (type.indexOf("text/") === 0) { return "TXT"; }
+
+    var dot = file.name.lastIndexOf(".");
+    if (dot > -1 && dot < file.name.length - 1) {
+      return file.name.slice(dot + 1, dot + 5).toUpperCase();
+    }
+    return "FILE";
+  }
+
+  function clipCount() {
+    return clips.length + (clips.length === 1 ? " clip" : " clips");
+  }
+
+  function afterClips() {
+    renderClips();
+    updateCount();
+    if (!composing) { setMode(true); }
+    el.area.focus();
+    grow();
+  }
+
+  function addLink(raw) {
+    var text = raw.trim();
+    var href = /^www\./i.test(text) ? "https://" + text : text;
+    var name, meta;
+
+    try {
+      var url = new URL(href);
+      name = url.hostname.replace(/^www\./, "");
+      meta = (url.pathname === "/" ? "" : decodeURIComponent(url.pathname)) + url.search;
+      if (!meta) { meta = "link"; }
+    } catch (err) {
+      name = text;
+      meta = "link";
+    }
+
+    clips.push({ mark: "LINK", name: name, meta: meta, href: href, thumb: null });
+    afterClips();
+  }
+
+  function addFiles(list) {
+    Array.prototype.forEach.call(list, function (file) {
+      var clip = {
+        mark: markFor(file),
+        name: file.name,
+        meta: formatSize(file.size),
+        thumb: null
+      };
+      clips.push(clip);
+
+      /* a picture is worth showing; everything else gets its mark */
+      if (file.type.indexOf("image/") === 0 && file.size < 8 * 1024 * 1024) {
+        var reader = new FileReader();
+        reader.onload = function () { clip.thumb = reader.result; renderClips(); };
+        reader.readAsDataURL(file);
+      }
+    });
+    afterClips();
+  }
+
+  function renderClips() {
+    el.clips.textContent = "";
+    el.clips.hidden = clips.length === 0;
+
+    clips.forEach(function (clip, index) {
+      var li = document.createElement("li");
+      li.className = "clip";
+
+      if (clip.thumb) {
+        var img = document.createElement("img");
+        img.className = "clip__thumb";
+        img.src = clip.thumb;
+        img.alt = "";
+        li.appendChild(img);
+      } else {
+        var mark = document.createElement("span");
+        mark.className = "clip__mark";
+        mark.textContent = clip.mark;
+        li.appendChild(mark);
+      }
+
+      var body = document.createElement("div");
+      body.className = "clip__body";
+
+      var name = document.createElement("span");
+      name.className = "clip__name";
+      name.textContent = clip.name;
+
+      var meta = document.createElement("span");
+      meta.className = "clip__meta";
+      meta.textContent = clip.meta;
+
+      body.appendChild(name);
+      body.appendChild(meta);
+      li.appendChild(body);
+
+      var drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "clip__x";
+      drop.textContent = "\u00d7";
+      drop.setAttribute("aria-label", "Remove " + clip.name);
+      drop.addEventListener("click", function () {
+        clips.splice(index, 1);
+        renderClips();
+        updateCount();
+        grow();
+        el.area.focus();
+      });
+      li.appendChild(drop);
+
+      el.clips.appendChild(li);
+    });
+  }
+
+  function updateCount() {
+    var label = wordsIn(el.area.value) + " w";
+    if (clips.length) { label += " · " + clipCount(); }
+    el.count.textContent = label;
+  }
+
+  /* paste a link, or a screenshot, straight into the entry */
+  el.area.addEventListener("paste", function (event) {
+    var data = event.clipboardData;
+    if (!data) { return; }
+
+    if (data.files && data.files.length) {
+      event.preventDefault();
+      addFiles(data.files);
+      return;
+    }
+
+    var text = data.getData("text");
+    if (text && isUrl(text)) {
+      event.preventDefault();
+      addLink(text);
+    }
+  });
+
+  el.attachBtn.addEventListener("click", function () { el.fileInput.click(); });
+
+  el.fileInput.addEventListener("change", function () {
+    if (el.fileInput.files.length) { addFiles(el.fileInput.files); }
+    el.fileInput.value = "";
+  });
+
+  /* drop anywhere on the window */
+  function draggingFiles(event) {
+    var types = event.dataTransfer && event.dataTransfer.types;
+    return !!types && Array.prototype.indexOf.call(types, "Files") > -1;
+  }
+
+  window.addEventListener("dragenter", function (event) {
+    if (!draggingFiles(event)) { return; }
+    event.preventDefault();
+    dragDepth += 1;
+    el.body.dataset.drop = "on";
+  });
+
+  window.addEventListener("dragover", function (event) {
+    if (draggingFiles(event)) { event.preventDefault(); }
+  });
+
+  window.addEventListener("dragleave", function () {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) { delete el.body.dataset.drop; }
+  });
+
+  window.addEventListener("drop", function (event) {
+    if (!draggingFiles(event)) { return; }
+    event.preventDefault();
+    dragDepth = 0;
+    delete el.body.dataset.drop;
+    addFiles(event.dataTransfer.files);
+  });
+
   /* --- filing an entry --------------------------------------------------- */
 
   el.form.addEventListener("submit", function (event) {
     event.preventDefault();
 
     var text = el.area.value.trim();
-    if (text === "") { el.area.focus(); return; }
+
+    /* typed a bare URL and nothing else? that's a resource, not a sentence */
+    if (isUrl(text)) {
+      el.area.value = "";
+      addLink(text);
+      text = "";
+    }
+
+    if (text === "" && clips.length === 0) { el.area.focus(); return; }
 
     var words = wordsIn(text);
+    var clipped = clips.length ? " · " + clipCount() : "";
     var book = bookById(selected);
     var folio = folioLabel(nextFolio);
     var target = book || floating;
@@ -390,15 +605,17 @@
     nextFolio += 1;
     el.folio.textContent = folioLabel(nextFolio);
     el.area.value = "";
-    el.count.textContent = "0 w";
+    clips = [];
+    renderClips();
+    updateCount();
     grow();
 
     renderBooks();
     renderSelection();
 
     say(book
-      ? folio + " → " + book.name + " · " + words + " w"
-      : folio + " left floating · " + words + " w");
+      ? folio + " → " + book.name + " · " + words + " w" + clipped
+      : folio + " left floating · " + words + " w" + clipped);
 
     el.area.focus();
   });
@@ -495,6 +712,8 @@
 
   renderBooks();
   renderSelection();
+  renderClips();
+  updateCount();
   grow();
 
   if (document.fonts && document.fonts.ready) {

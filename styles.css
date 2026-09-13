@@ -287,11 +287,10 @@ body[data-mode="compose"] .slate__area {
   margin-top: 0.85rem;
 }
 
-.slate__count { flex: 0 0 auto; color: var(--ash-dim); }
+.slate__count { flex: 0 0 auto; margin-left: auto; color: var(--ash-dim); }
 
 .slate__enter {
   flex: 0 0 auto;
-  margin-left: auto;
   font-family: var(--mono);
   font-size: 0.72rem;
   font-weight: 500;
@@ -378,6 +377,149 @@ body[data-mode="compose"] .slate__area {
 }
 .dest__opt--none { color: var(--ash); font-style: italic; }
 .dest__sep { height: 1px; margin: 0.3rem 0.2rem; background: var(--lead); }
+
+/* --- clipped resources -------------------------------------------------- */
+
+.clips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.95rem 0 0;
+  padding: 0;
+}
+.clips[hidden] { display: none; }
+
+.clip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(100%, 24rem);
+  padding: 0.42rem 0.42rem 0.42rem 0.55rem;
+  background: var(--stone);
+  border: 1px solid var(--lead-hi);
+  border-left: 2px solid var(--brass-dim);
+  border-radius: 2px;
+  animation: clip-in 220ms ease both;
+}
+@keyframes clip-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.clip__mark {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--brass);
+  border: 1px solid var(--brass-dim);
+  border-radius: 2px;
+  padding: 0.2rem 0.32rem;
+}
+
+.clip__thumb {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--lead-hi);
+  background: var(--soot);
+}
+
+.clip__body { min-width: 0; display: flex; flex-direction: column; }
+.clip__name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clip__meta {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--ash-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip__x {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--ash-dim);
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.clip__x:hover { color: var(--bone); background: var(--stone-hi); }
+
+/* attach: the fallback for when you'd rather browse than paste */
+.slate__attach {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.slate__attach:hover { color: var(--brass); border-color: var(--lead-hi); }
+
+/* --- dropping a file ---------------------------------------------------- */
+
+.drop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+body[data-drop="on"] .drop { opacity: 1; }
+body[data-drop="on"] .lamp { opacity: 1; }
+
+.drop__frame {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--brass);
+  border-radius: 3px;
+  background: rgba(13,12,11,0.84);
+}
+.drop__text {
+  margin: 0;
+  padding: 0.72rem 1.15rem;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  background: var(--soot-deep);
+  border: 1px solid var(--brass-dim);
+  border-radius: 2px;
+}
 
 /* --- the notebook index ------------------------------------------------ */
 
@@ -615,10 +757,13 @@ body[data-mode="compose"] .slate__area {
   .colophon__note { margin-left: 0; }
 }
 
-@media (max-width: 26em) {
-  .slate__foot { flex-wrap: wrap; }
-  .slate__count { order: 3; }
-  .slate__enter { order: 2; }
+@media (max-width: 30em) {
+  .slate__foot { flex-wrap: wrap; gap: 0.6rem; }
+  .dest { order: 1; }
+  .slate__attach { order: 2; margin-left: auto; }
+  .slate__count { order: 3; margin-left: 0; }
+  .slate__enter { order: 4; margin-left: auto; }
+  .clip__thumb { width: 32px; height: 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

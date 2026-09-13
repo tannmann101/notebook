@@ -22,6 +22,13 @@ a lamp comes up, the headline steps aside, and what you type takes its place at
 display scale. Enter files it, Shift+Enter breaks a line, Esc steps back out.
 No modal, no page change, nothing to dismiss.
 
+A **resource** can ride along with the entry. Paste a URL and it becomes a clip
+instead of raw text; paste a screenshot, drop a file anywhere on the window, or
+use Attach. Clips sit between your words and the rule, so they read as part of
+the entry rather than an attachment tray. Images show a thumbnail, everything
+else gets its kind — `PDF`, `TXT`, `LINK`. Nothing is uploaded: the name, kind
+and size are held until storage lands.
+
 ## Running it
 
 Open `index.html` in a browser. That's the whole thing. For a local server:
@@ -54,6 +61,8 @@ change them there and the page follows.
 | `Enter` | File it |
 | `Shift` + `Enter` | New line |
 | `Esc` | Step back out |
+| paste a link | Clip it to the entry |
+| drop a file | Clip it to the entry |
 
 ## Next
 

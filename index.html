@@ -14,6 +14,7 @@
 <body>
 <div class="grain" aria-hidden="true"></div>
 <div class="lamp" aria-hidden="true"></div>
+<div class="drop" aria-hidden="true"><div class="drop__frame"><p class="drop__text">Drop to clip it to this entry</p></div></div>
 
 <header class="rail">
   <a class="mark" href="#">
@@ -36,6 +37,7 @@
       <label class="visually-hidden" for="entry">Write an entry</label>
       <textarea class="slate__area" id="entry" name="entry" rows="1"
                 placeholder="A line, a scrap, a thought&hellip;"></textarea>
+      <ul class="clips" id="clips" hidden></ul>
       <span class="slate__rule" aria-hidden="true"></span>
 
       <div class="slate__foot">
@@ -52,6 +54,16 @@
           <ul class="dest__menu" id="dest-menu" role="listbox"
               aria-label="File this entry in" hidden></ul>
         </div>
+
+        <button class="slate__attach" type="button" id="attach-btn"
+                title="Attach a file — or just paste a link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l8.6-8.6a3.7 3.7 0 015.2 5.2l-8.6 8.6a1.8 1.8 0 01-2.6-2.6l7.9-7.9"/>
+          </svg>
+          <span>Attach</span>
+        </button>
+        <input class="visually-hidden" type="file" id="file-input" multiple>
 
         <span class="slate__count stamp" id="count">0 w</span>
         <button class="slate__enter" type="submit">Enter<span aria-hidden="true"> &crarr;</span></button>
