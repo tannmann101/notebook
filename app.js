@@ -36,11 +36,11 @@
   var el = {};
   [ "entry-form", "entry", "thesis", "count", "hint", "next-folio", "dest-echo",
     "dest", "dest-btn", "dest-dye", "dest-name", "dest-menu", "dest-fixed",
-    "books", "books-note", "book-new", "float-btn", "float-n", "float-w",
+    "books", "book-new", "float-btn", "float-n",
     "counts", "clips", "attach-btn", "file-input", "dateline", "composer",
     "view-home", "view-book", "view-entry", "home-body", "results",
     "find-all", "find-all-n", "find-book", "find-book-n",
-    "slot-home", "slot-book", "slot-entry", "book-dye", "book-name", "book-meta",
+    "slot-home", "slot-book", "slot-entry", "book-dye", "book-name",
     "book-entries", "book-empty", "entry-back", "entry-folio", "entry-title",
     "entry-meta", "entry-passages", "pickup-date", "colophon"
   ].forEach(function (id) {
@@ -77,14 +77,6 @@
     var month = d.toLocaleDateString(undefined, { month: "short" })
       .replace(".", "").toUpperCase();
     return String(d.getDate()).padStart(2, "0") + " " + month + " " + d.getFullYear();
-  }
-
-  function ago(days) {
-    if (days === 0) { return "today"; }
-    if (days === 1) { return "yesterday"; }
-    if (days < 14) { return days + " days ago"; }
-    if (days < 60) { return Math.round(days / 7) + " weeks ago"; }
-    return Math.round(days / 30) + " months ago";
   }
 
   function containers() { return notebooks.concat([floating]); }
@@ -149,9 +141,11 @@
 
     if (entry.passages.length > 1) { return clamp(latest, 118); }
 
+    /* one sitting: show whatever the title didn't. If the title already ran
+       out of room, a continuation would start mid-thought — say nothing. */
     var opening = openingLine(entry);
-    var shown = opening.length <= 64 ? opening.length : 63;
-    return clamp(latest.slice(shown).trim(), 118);
+    if (opening.length > 64) { return ""; }
+    return clamp(latest.slice(opening.length).trim(), 118);
   }
 
   function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
@@ -276,10 +270,7 @@
       el.books.appendChild(li);
     });
 
-    var filed = notebooks.reduce(function (n, b) { return n + b.entries.length; }, 0);
-    el.booksNote.textContent = notebooks.length + " books · " + num(filed) + " entries";
     el.floatN.textContent = num(floating.entries.length);
-    el.floatW.textContent = num(countWords(floating));
     renderCounts();
   }
 
@@ -325,13 +316,6 @@
 
     el.bookDye.className = "dye dye--" + container.dye;
     el.bookName.textContent = container.name;
-    el.bookMeta.textContent =
-      num(container.entries.length) + " entries · " +
-      num(countWords(container)) + " words" +
-      (container.entries.length
-        ? " · last " + ago(Math.min.apply(null, container.entries.map(entryTouched)))
-        : "");
-
     el.findBook.value = "";
     renderBookEntries(container.entries.slice().sort(byRecency));
     el.findBookN.textContent = "";
@@ -363,11 +347,10 @@
     }
     if (snip) { body.appendChild(snip); }
 
-    var meta = elem("p", "row__meta stamp");
-    var bits = [sittings(entry.passages.length), entryWords(entry) + " w"];
+    var bits = [];
+    if (entry.passages.length > 1) { bits.push(sittings(entry.passages.length)); }
     if (entryClips(entry)) { bits.push(entryClips(entry) + " clipped"); }
-    meta.textContent = bits.join(" · ");
-    body.appendChild(meta);
+    if (bits.length) { body.appendChild(elem("p", "row__meta stamp", bits.join(" · "))); }
 
     btn.appendChild(head);
     btn.appendChild(body);
@@ -402,9 +385,7 @@
 
     el.entryFolio.textContent = "Entry " + entry.folio;
     el.entryTitle.textContent = titleOf(entry);
-    el.entryMeta.textContent =
-      sittings(entry.passages.length) + " · " + num(entryWords(entry)) + " words · started " +
-      stamp(entryStarted(entry));
+    el.entryMeta.textContent = "Started " + stamp(entryStarted(entry));
 
     renderPassages();
     moveComposer(el.slotEntry, "entry");
@@ -758,9 +739,11 @@
   }
 
   function updateCount() {
-    var label = wordsIn(el.entry.value) + " w";
-    if (clips.length) { label += " · " + clipCount(); }
-    el.count.textContent = label;
+    var words = wordsIn(el.entry.value);
+    var bits = [];
+    if (words) { bits.push(words + " w"); }
+    if (clips.length) { bits.push(clipCount()); }
+    el.count.textContent = bits.join(" · ");
   }
 
   el.entry.addEventListener("paste", function (event) {
@@ -925,9 +908,6 @@
     if (context === "entry") {
       openEntry.passages.push(passage);
       renderPassages();
-      el.entryMeta.textContent =
-        sittings(openEntry.passages.length) + " · " + num(entryWords(openEntry)) +
-        " words · started " + stamp(entryStarted(openEntry));
       say("Added to " + openEntry.folio + " · " + words + " w" + clipped);
       el.entry.focus();
       return;
@@ -939,9 +919,6 @@
 
     if (context === "book") {
       renderBookEntries(container.entries.slice().sort(byRecency));
-      el.bookMeta.textContent =
-        num(container.entries.length) + " entries · " +
-        num(countWords(container)) + " words · last today";
       say(entry.folio + " started in " + container.name + " · " + words + " w" + clipped,
         entry.folio);
     } else {
