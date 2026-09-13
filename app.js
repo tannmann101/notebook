@@ -545,6 +545,56 @@
     return li;
   }
 
+  /* A URL written into a line is a link you can follow, not just characters. */
+  function textLine(line) {
+    var node = elem("p", "passage__text");
+    var finder = /https?:\/\/[^\s<>"]+/g;
+    var at = 0;
+    var hit;
+
+    while ((hit = finder.exec(line)) !== null) {
+      if (hit.index > at) {
+        node.appendChild(document.createTextNode(line.slice(at, hit.index)));
+      }
+
+      var href = hit[0].replace(TAIL, "");
+      var link = elem("a", "passage__link", href);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noopener";
+      node.appendChild(link);
+      at = hit.index + href.length;
+    }
+
+    if (at < line.length) { node.appendChild(document.createTextNode(line.slice(at))); }
+    return node;
+  }
+
+  /* A video written into the line gets the same row a clipped one gets, which
+     is what the copy does too. Once per video: a link that was both written
+     and clipped already has its row. */
+  function writtenLinks(passage) {
+    var seen = Object.create(null);
+    var extra = [];
+
+    passage.clips.forEach(function (clip) {
+      var poster = clip.href && posterFor(clip.href);
+      if (poster) { seen[poster] = true; }
+    });
+
+    linksIn(passage.text).forEach(function (href) {
+      var poster = posterFor(href);
+      if (!poster || seen[poster]) { return; }
+      seen[poster] = true;
+
+      var about = describeLink(href);
+      extra.push({ mark: "LINK", name: about.name, meta: about.meta, href: href,
+                   thumb: posterCache[poster] || null });
+    });
+
+    return extra;
+  }
+
   function renderPassages() {
     el.entryPassages.textContent = "";
 
@@ -559,12 +609,14 @@
 
       var body = elem("div", "passage__body");
       passage.text.split("\n").forEach(function (line) {
-        if (line.trim()) { body.appendChild(elem("p", "passage__text", line)); }
+        if (line.trim()) { body.appendChild(textLine(line)); }
       });
 
-      if (passage.clips.length) {
+      var rows = passage.clips.concat(writtenLinks(passage));
+
+      if (rows.length) {
         var list = elem("ul", "clips clips--still");
-        passage.clips.forEach(function (c) {
+        rows.forEach(function (c) {
           var node = clipNode(c, true);
           if (c.href || c.id) {
             node.classList.add("clip--open");
@@ -1017,22 +1069,22 @@
     });
   }
 
+  /* the host over the path, the way a clip row reads */
+  function describeLink(href) {
+    try {
+      var url = new URL(href);
+      var path = (url.pathname === "/" ? "" : decodeURIComponent(url.pathname)) + url.search;
+      return { name: url.hostname.replace(/^www\./, ""), meta: path || "link" };
+    } catch (err) {
+      return { name: href, meta: "link" };
+    }
+  }
+
   function addLink(raw) {
     var text = raw.trim();
     var href = /^www\./i.test(text) ? "https://" + text : text;
-    var name, meta;
-
-    try {
-      var url = new URL(href);
-      name = url.hostname.replace(/^www\./, "");
-      meta = (url.pathname === "/" ? "" : decodeURIComponent(url.pathname)) + url.search;
-      if (!meta) { meta = "link"; }
-    } catch (err) {
-      name = text;
-      meta = "link";
-    }
-
-    var clip = { mark: "LINK", name: name, meta: meta, href: href, thumb: null };
+    var about = describeLink(href);
+    var clip = { mark: "LINK", name: about.name, meta: about.meta, href: href, thumb: null };
     clips.push(clip);
 
     posterBytes(href, function (data) {
@@ -1429,12 +1481,16 @@
   function toHtml(blocks) {
     var out = [];
     var spent = 0;
-    var shown = Object.create(null);   /* one poster per video, however often it appears */
+    var shown = Object.create(null);   /* one poster per video within a sitting */
 
     blocks.forEach(function (b) {
       if (b.k === "rule" || b.k === "heavy") { out.push("<hr>"); return; }
-      if (b.k === "head") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
       if (b.k === "meta") { out.push("<p><em>" + escapeHtml(b.text) + "</em></p>"); return; }
+      /* each sitting stands on its own, the way the entry screen shows it —
+         a video in two sittings gets its poster in both */
+      if (b.k === "stamp" || b.k === "head") { shown = Object.create(null); }
+
+      if (b.k === "head") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
       if (b.k === "stamp") { out.push("<p><strong>" + escapeHtml(b.text) + "</strong></p>"); return; }
       if (b.k === "para") {
         out.push("<p>" + linkify(b.text) + "</p>");

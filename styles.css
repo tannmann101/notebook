@@ -807,6 +807,18 @@ mark {
   color: var(--bone);
 }
 
+/* a URL written into a line — followable, and it breaks rather than pushing
+   the column open, since some of them are very long */
+.passage__link {
+  color: var(--bone);
+  text-decoration: underline;
+  text-decoration-color: var(--brass-dim);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.passage__link:hover { text-decoration-color: var(--brass); }
+
 .clips--still { margin-top: 0; }
 .clip--still { background: transparent; border-left-color: var(--lead-hi); }
 
