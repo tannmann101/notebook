@@ -21,6 +21,18 @@
     <span class="mark__rule" aria-hidden="true"></span>
     <span class="mark__word">Notebook</span>
   </a>
+  <div class="rail__find">
+    <svg class="rail__glass" width="13" height="13" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="7"></circle><path d="M15.6 15.6L21 21"></path>
+    </svg>
+    <button class="find__scope" type="button" id="find-scope" hidden></button>
+    <label class="visually-hidden" for="find">Search</label>
+    <input class="find__input" id="find" type="search" autocomplete="off"
+           placeholder="Find anything&hellip;">
+    <span class="find__n stamp" id="find-n"></span>
+  </div>
+
   <div class="rail__meta">
     <span class="stamp" id="dateline">&nbsp;</span>
     <kbd class="key" title="Press n to start an entry">n</kbd>
@@ -28,6 +40,12 @@
 </header>
 
 <main class="page">
+
+  <section class="results" id="results" hidden aria-label="Search results">
+    <p class="eyebrow" id="results-head">&nbsp;</p>
+    <ol class="entries" id="results-list"></ol>
+    <p class="empty" id="results-empty" hidden>Nothing matches that. It may not have been written down yet.</p>
+  </section>
 
   <!-- ============================ home ============================ -->
   <section class="view" id="view-home">
@@ -38,17 +56,7 @@
       <div class="composer-slot" id="slot-home"></div>
     </section>
 
-    <div class="listing">
-      <section class="find recede" aria-label="Search everything">
-        <label class="find__label stamp" for="find-all">Find</label>
-        <input class="find__input" id="find-all" type="search" autocomplete="off"
-               placeholder="Across every notebook&hellip;">
-        <span class="find__n stamp" id="find-all-n"></span>
-      </section>
-
-      <section class="results recede" id="results" hidden aria-label="Search results"></section>
-
-      <div class="home-body recede" id="home-body">
+    <div class="home-body recede" id="home-body">
       <section class="books-wrap" aria-labelledby="books-h">
         <div class="section-head">
           <h2 class="section-head__title" id="books-h">Notebooks</h2>
@@ -69,8 +77,7 @@
           <span class="floaters__n"><b id="float-n">0</b> entries</span>
         </button>
         <p class="floaters__note">Thoughts that never got put away. They keep just fine here.</p>
-        </section>
-      </div>
+      </section>
     </div>
   </section>
 
@@ -87,17 +94,8 @@
 
     <div class="composer-slot" id="slot-book"></div>
 
-    <div class="listing">
-      <section class="find recede" aria-label="Search this notebook">
-        <label class="find__label stamp" for="find-book">Find</label>
-        <input class="find__input" id="find-book" type="search" autocomplete="off"
-               placeholder="In this notebook&hellip;">
-        <span class="find__n stamp" id="find-book-n"></span>
-      </section>
-
-      <ol class="entries recede" id="book-entries"></ol>
-      <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
-    </div>
+    <ol class="entries recede" id="book-entries"></ol>
+    <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
   </section>
 
   <!-- =========================== an entry =========================== -->

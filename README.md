@@ -16,10 +16,15 @@ An **entry** is a thread, not a note. It opens with a line and accumulates dated
 that day and added to the same thread. An entry lives in a notebook, or it
 floats.
 
-**Home** is the index: notebooks with their entry counts, a panel for floating
-thoughts, and a search across everything. **A notebook** lists its entries,
-newest touched first, with its own scoped search. **An entry** shows its
-sittings in order, oldest at the top, with today's waiting at the bottom.
+**Home** is the index: notebooks with their entry counts, and a panel for
+floating thoughts. **A notebook** lists its entries, newest touched first.
+**An entry** shows its sittings in order, oldest at the top, with today's
+waiting at the bottom.
+
+**Search** lives in the rail and is the same field everywhere. Type and results
+take over the page; clear it and you're back where you were. Start typing while
+inside a notebook and it scopes itself to that notebook — a chip in the field
+says so, and clicking the chip off widens the same query to everything.
 
 One composer serves all three, moving to whichever view is asking. On home it
 starts an entry and you pick where it goes. In a notebook it starts one already
@@ -69,7 +74,7 @@ change them there and the page follows.
 | `n` | Start an entry |
 | `Enter` | File it |
 | `Shift` + `Enter` | New line |
-| `/` | Search — the whole notebook, or just this one |
+| `/` | Search from the rail |
 | `Esc` | Step back out, or up a level |
 | paste a link | Clip it to the entry |
 | drop a file | Clip it to the entry |

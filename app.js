@@ -26,6 +26,8 @@
   var selected = "";        /* composer destination on home; "" is floating */
   var context = "home";     /* where the composer currently sits */
   var composing = false;
+  var finding = false;
+  var scope = null;        /* a container to stay inside, or null for everything */
   var clips = [];
   var dragDepth = 0;
 
@@ -38,8 +40,8 @@
     "dest", "dest-btn", "dest-dye", "dest-name", "dest-menu", "dest-fixed",
     "books", "book-new", "float-btn", "float-n",
     "counts", "clips", "attach-btn", "file-input", "dateline", "composer",
-    "view-home", "view-book", "view-entry", "home-body", "results",
-    "find-all", "find-all-n", "find-book", "find-book-n",
+    "view-home", "view-book", "view-entry", "results",
+    "find", "find-n", "find-scope", "results-head", "results-list", "results-empty",
     "slot-home", "slot-book", "slot-entry", "book-dye", "book-name",
     "book-entries", "book-empty", "entry-back", "entry-folio", "entry-title",
     "entry-meta", "entry-passages", "pickup-date", "colophon"
@@ -182,6 +184,14 @@
   }
 
   function route() {
+    if (finding) {
+      el.find.value = "";
+      finding = false;
+      scope = null;
+      renderScope();
+      el.findN.textContent = "";
+    }
+
     var hash = window.location.hash || "#/";
     var parts = hash.replace(/^#\//, "").split("/");
 
@@ -199,11 +209,16 @@
   function setView(name) {
     view = name;
     el.body.dataset.view = name;
-    el.viewHome.hidden = name !== "home";
-    el.viewBook.hidden = name !== "book";
-    el.viewEntry.hidden = name !== "entry";
-    el.colophon.hidden = name !== "home";
+    showViews();
     window.scrollTo(0, 0);
+  }
+
+  function showViews() {
+    el.viewHome.hidden = finding || view !== "home";
+    el.viewBook.hidden = finding || view !== "book";
+    el.viewEntry.hidden = finding || view !== "entry";
+    el.colophon.hidden = finding || view !== "home";
+    el.results.hidden = !finding;
   }
 
   /* --- the composer, wherever it's needed --------------------------------- */
@@ -244,7 +259,6 @@
     el.nextFolio.textContent = nextFolio();
     renderBooks();
     renderSelection();
-    runSearch(el.findAll, el.findAllN, null);
   }
 
   function renderBooks() {
@@ -316,9 +330,7 @@
 
     el.bookDye.className = "dye dye--" + container.dye;
     el.bookName.textContent = container.name;
-    el.findBook.value = "";
     renderBookEntries(container.entries.slice().sort(byRecency));
-    el.findBookN.textContent = "";
   }
 
   function entryRow(entry, container, snippetNode) {
@@ -459,25 +471,37 @@
     return hit;
   }
 
-  /* one search, two scopes: pass a container to stay inside it */
-  function runSearch(input, counter, container) {
-    var query = input.value.trim().toLowerCase();
-    var scope = container ? [container] : containers();
+  function scopeFor() {
+    if (view === "book" || view === "entry") { return openBook; }
+    return null;
+  }
+
+  function renderScope() {
+    el.findScope.hidden = !scope;
+    if (scope) { el.findScope.textContent = "in " + scope.name; }
+  }
+
+  function runSearch() {
+    var query = el.find.value.trim().toLowerCase();
 
     if (query === "") {
-      counter.textContent = "";
-      if (container) {
-        renderBookEntries(container.entries.slice().sort(byRecency));
-      } else {
-        el.results.hidden = true;
-        el.results.textContent = "";
-        el.homeBody.hidden = false;
-      }
+      finding = false;
+      scope = null;
+      el.findN.textContent = "";
+      renderScope();
+      showViews();
       return;
     }
 
+    if (!finding) {
+      finding = true;
+      scope = scopeFor();
+      renderScope();
+      showViews();
+    }
+
     var found = [];
-    scope.forEach(function (c) {
+    (scope ? [scope] : containers()).forEach(function (c) {
       c.entries.forEach(function (entry) {
         var hit = matches(entry, query) ||
           (titleOf(entry).toLowerCase().indexOf(query) > -1 ? titleOf(entry) : null);
@@ -486,51 +510,49 @@
     });
     found.sort(function (a, b) { return entryTouched(a.entry) - entryTouched(b.entry); });
 
-    counter.textContent = found.length === 1 ? "1 entry" : found.length + " entries";
+    el.findN.textContent = found.length ? String(found.length) : "";
+    el.resultsHead.textContent = (found.length === 1 ? "1 entry" : found.length + " entries") +
+      (scope ? " in " + scope.name : " across everything");
 
-    if (container) {
-      el.bookEntries.textContent = "";
-      found.forEach(function (f) {
-        el.bookEntries.appendChild(entryRow(f.entry, container, snippetFor(f.hit, query)));
-      });
-      el.bookEmpty.hidden = found.length > 0;
-      return;
-    }
-
-    el.homeBody.hidden = true;
-    el.results.hidden = false;
-    el.results.textContent = "";
-
-    var list = elem("ol", "entries");
+    el.resultsList.textContent = "";
     found.forEach(function (f) {
-      list.appendChild(entryRow(f.entry, f.container, snippetFor(f.hit, query)));
+      el.resultsList.appendChild(
+        entryRow(f.entry, scope ? null : f.container, snippetFor(f.hit, query)));
     });
-    if (!found.length) {
-      el.results.appendChild(elem("p", "empty", "Nothing matches that. It may not have been written down yet."));
-    }
-    el.results.appendChild(list);
+    el.resultsEmpty.hidden = found.length > 0;
   }
 
-  el.findAll.addEventListener("input", function () {
-    runSearch(el.findAll, el.findAllN, null);
-  });
-  el.findBook.addEventListener("input", function () {
-    runSearch(el.findBook, el.findBookN, openBook);
+  function clearSearch() {
+    el.find.value = "";
+    runSearch();
+  }
+
+  el.find.addEventListener("input", runSearch);
+
+  el.find.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      if (el.find.value) { clearSearch(); } else { el.find.blur(); }
+    }
   });
 
-  [el.findAll, el.findBook].forEach(function (input) {
-    input.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") {
-        input.value = "";
-        input.dispatchEvent(new Event("input"));
-        input.blur();
-      }
-    });
+  /* drop the scope to widen the same query to everything */
+  el.findScope.addEventListener("click", function () {
+    scope = null;
+    renderScope();
+    runSearch();
+    el.find.focus();
   });
 
   el.results.addEventListener("click", function (event) {
     var btn = event.target.closest(".row__btn");
-    if (btn) { go("#/e/" + btn.dataset.folio); }
+    if (btn) {
+      el.find.value = "";
+      finding = false;
+      scope = null;
+      renderScope();
+      el.findN.textContent = "";
+      go("#/e/" + btn.dataset.folio);
+    }
   });
 
   /* --- destination picker ------------------------------------------------- */
@@ -1005,12 +1027,14 @@
 
     if (event.key === "n") {
       event.preventDefault();
+      if (finding) { clearSearch(); }
       el.entry.focus();
     } else if (event.key === "/") {
-      var box = view === "book" ? el.findBook : el.findAll;
-      if (view !== "entry") { event.preventDefault(); box.focus(); }
-    } else if (event.key === "Escape" && view !== "home") {
-      go(view === "entry" ? "#/n/" + openBook.id : "#/");
+      event.preventDefault();
+      el.find.focus();
+    } else if (event.key === "Escape") {
+      if (finding) { clearSearch(); }
+      else if (view !== "home") { go(view === "entry" ? "#/n/" + openBook.id : "#/"); }
     }
   });
 

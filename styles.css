@@ -525,7 +525,7 @@ body[data-drop="on"] .lamp { opacity: 1; }
   flex-direction: column;
   gap: clamp(2.5rem, 5.5vw, 3.5rem);
 }
-.listing { display: flex; flex-direction: column; gap: 1.4rem; }
+.home-body { gap: clamp(2.5rem, 5.5vw, 3.5rem); }
 
 .empty { margin: 1.5rem 0 0; color: var(--ash-dim); font-style: italic; }
 
@@ -576,24 +576,26 @@ body[data-drop="on"] .lamp { opacity: 1; }
   color: var(--bone);
 }
 
-/* --- find --------------------------------------------------------------- */
+/* --- find, in the rail -------------------------------------------------- */
 
-.find {
+.rail__find {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 30rem;
+  margin-left: clamp(1rem, 4vw, 2.5rem);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid var(--lead);
-  transition: border-color 160ms ease;
+  gap: 0.5rem;
+  padding: 0.34rem 0.6rem;
+  background: var(--stone);
+  border: 1px solid var(--lead-hi);
+  border-radius: 2px;
+  transition: border-color 160ms ease, background-color 160ms ease;
 }
-.find:focus-within { border-bottom-color: var(--brass); }
+.rail__find:focus-within { border-color: var(--brass); background: var(--stone-hi); }
+.rail__glass { flex: 0 0 auto; color: var(--ash-dim); }
+.rail__find:focus-within .rail__glass { color: var(--brass); }
 
-.find__label {
-  flex: 0 0 auto;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ash-dim);
-}
 .find__input {
   flex: 1 1 auto;
   min-width: 0;
@@ -602,15 +604,43 @@ body[data-drop="on"] .lamp { opacity: 1; }
   color: var(--bone);
   caret-color: var(--brass);
   font-family: var(--display);
-  font-size: 1rem;
+  font-size: 0.88rem;
   font-weight: 400;
-  padding: 0.35rem 0;
+  padding: 0.12rem 0;
 }
 .find__input:focus { outline: none; }
 .find__input::placeholder { color: var(--ash-dim); }
 .find__input::-webkit-search-cancel-button,
 .find__input::-webkit-search-decoration { -webkit-appearance: none; }
 .find__n { flex: 0 0 auto; color: var(--brass); }
+
+/* the notebook you were in when you started typing — click it off to widen */
+.find__scope {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 9rem;
+  padding: 0.14rem 0.38rem;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  color: var(--brass);
+  background: transparent;
+  border: 1px solid var(--brass-dim);
+  border-radius: 2px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+.find__scope::after { content: "\00d7"; color: var(--ash); }
+.find__scope:hover { border-color: var(--brass); }
+.find__scope:hover::after { color: var(--bone); }
+
+/* --- results ------------------------------------------------------------ */
+
+.results { display: flex; flex-direction: column; gap: 1.2rem; }
+.results .eyebrow { color: var(--ash); }
 
 mark {
   background: transparent;
@@ -716,7 +746,7 @@ mark {
 
 .book__btn {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.8rem;
   width: 100%;
   padding: 0.78rem 0.5rem 0.78rem 0.65rem;
@@ -752,7 +782,6 @@ mark {
   min-width: 1.5rem;
   height: 0;
   border-bottom: 1px dotted var(--lead-hi);
-  transform: translateY(-0.22rem);
 }
 
 .book__n { flex: 0 0 auto; color: var(--ash); }
@@ -935,8 +964,14 @@ mark {
 
 /* --- narrow ------------------------------------------------------------ */
 
+@media (max-width: 62em) {
+  .rail__meta { display: none; }
+}
+
 @media (max-width: 34em) {
   .key { display: none; }
+  .rail { flex-wrap: wrap; row-gap: 0.75rem; }
+  .rail__find { flex-basis: 100%; max-width: none; margin-left: 0; }
   .passage { grid-template-columns: 1fr; gap: 0.5rem; }
   .passage__stamp { padding-top: 0; }
   .row__folio { margin-left: 0; }
