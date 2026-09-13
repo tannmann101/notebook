@@ -5,9 +5,8 @@ of thought it is.
 
 ## Where this is
 
-Three screens — static HTML, CSS and a little vanilla JavaScript, no build step
-and no dependencies. The figures on the page are samples for setting
-the look; nothing is stored yet.
+A static site — HTML, CSS and vanilla JavaScript, no build step and no
+dependencies. It installs to a desktop or a phone home screen and runs offline.
 
 ## How it works
 
@@ -63,13 +62,40 @@ the entry rather than an attachment tray. Images show a thumbnail, everything
 else gets its kind — `PDF`, `TXT`, `LINK`. Nothing is uploaded: the name, kind
 and size are held until storage lands.
 
+## Where your notes live
+
+In this browser, on this device — IndexedDB, via `store.js`. Nothing is
+uploaded, there is no account, and there is no server to go down. The site
+itself is public; your notes are not on it.
+
+The flip side: **there is no sync.** A notebook written on the laptop is not the
+notebook on the phone. Each install keeps its own. Clearing the browser's site
+data for the domain erases it, so use **Copy everything** if you want a copy
+somewhere else.
+
 ## Running it
 
-Open `index.html` in a browser. That's the whole thing. For a local server:
+Service workers and IndexedDB need a real origin, so open it over HTTP rather
+than as a file:
 
 ```sh
 python3 -m http.server 8000   # then visit http://localhost:8000
 ```
+
+## Installing it
+
+Published by GitHub Actions to GitHub Pages on every push (`.github/workflows/pages.yml`).
+Enable it once: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+The site is then at `https://<owner>.github.io/notebook/`.
+
+| | |
+| --- | --- |
+| **iPhone** | Open the site in Safari → Share → **Add to Home Screen** |
+| **macOS** | Safari → File → **Add to Dock**, or Chrome → **Install** in the address bar |
+| **Windows / Linux** | Chrome or Edge → **Install** in the address bar |
+
+Installed, it opens without browser chrome and works with no connection — the
+shell is cached by `sw.js`, and your notes were never remote to begin with.
 
 ## Files
 
@@ -77,8 +103,10 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | --- | --- |
 | `index.html` | Page structure and the sample entries |
 | `styles.css` | Design tokens and every rule on the page |
-| `data.js` | Sample notebooks, entries and sittings — what storage replaces |
-| `app.js` | Views, routing, search, compose mode, clips |
+| `store.js` | IndexedDB: notebooks, entries, and clipped files |
+| `app.js` | Views, routing, search, compose mode, clips, reports |
+| `sw.js` | Caches the shell so it opens offline |
+| `manifest.webmanifest` | Name, icons and colors for the installed app |
 
 ## The look
 
@@ -102,11 +130,13 @@ change them there and the page follows.
 
 ## Next
 
-Storage, then entry pages, then search. Nothing is decided yet.
+Sync is the open question. Local-only is what makes this simple, private and
+free to run; it is also why the phone and the laptop keep separate notebooks.
 
-Everything renders from `window.NOTEBOOK_DATA` in `data.js`, and every figure on
-the page is derived from it — entry counts, word counts, dates, "kept since".
-Nothing is hardcoded, so persistence hooks in by replacing that one object.
+The whole notebook is loaded from IndexedDB at boot and held in memory, so
+rendering stays synchronous and every change is written straight back. That is
+fine at personal scale — thousands of entries — and it is the shape a sync layer
+would sit on top of, if there is ever one.
 
-Dates are stored as day offsets from today so the sample stays plausible
-whenever it's opened. Real storage will want real timestamps.
+Sittings carry real timestamps (`at`, epoch milliseconds). Every figure on the
+page is derived: entry counts, word counts, dates, "kept since".

@@ -6,6 +6,14 @@
 <title>Notebook</title>
 <meta name="description" content="A personal notebook. Put it down before it's finished.">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#131210">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Notebook">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&family=Spline+Sans+Mono:wght@400;500&display=swap">
@@ -63,6 +71,7 @@
         </div>
 
         <ol class="books" id="books"></ol>
+        <p class="empty" id="books-empty" hidden>No notebooks yet. Until there is one, everything you write floats.</p>
 
         <button class="book-new" type="button" id="book-new">
           <span class="book-new__plus" aria-hidden="true">+</span>
@@ -147,7 +156,7 @@
     </svg>
     <span class="copy__label">Copy everything</span>
   </button>
-  <p class="colophon__note">Sample entries, for setting the look. Nothing is stored.</p>
+  <p class="colophon__note">Kept in this browser, on this device. Nothing is uploaded.</p>
 </footer>
 
 <div class="report" id="report" hidden>
@@ -203,7 +212,16 @@
   <p class="slate__hint" id="hint" role="status" aria-live="polite"></p>
 </div>
 
-<script src="data.js"></script>
+<script src="store.js"></script>
 <script src="app.js"></script>
+<script>
+  /* the installed app: cached shell, so it opens without a connection */
+  if ("serviceWorker" in navigator && window.top === window.self &&
+      window.isSecureContext) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>

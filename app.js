@@ -2,32 +2,32 @@
 
    An entry is a thread. You start it with a line, and every time you come back
    you add a dated sitting to the same thread. Entries live in a notebook, or
-   they float.
+   they float. Entry numbers run in one sequence across everything.
 
    Three views, one composer. The composer moves to whichever view is asking:
    on the home screen it starts an entry, in a notebook it starts one already
    filed there, and inside an entry it picks the thread back up.
 
-   Nothing is stored. Figures come from data.js and reset on refresh. */
+   The whole notebook is loaded from IndexedDB at boot and held in memory, so
+   rendering stays synchronous and every change is written straight back. */
 
 (function () {
   "use strict";
 
-  var data = window.NOTEBOOK_DATA;
-  var notebooks = data.notebooks;
+  var notebooks = [];
   var floating = { id: "floating", name: "Floating thoughts", dye: "none",
-                   entries: data.floating, loose: true };
+                   entries: [], loose: true };
 
   var dyes = ["brass", "verdigris", "oxblood", "bone", "slate", "lead"];
 
-  var view = "home";        /* home | book | entry */
-  var openBook = null;      /* container being viewed */
-  var openEntry = null;     /* entry being viewed */
-  var selected = "";        /* composer destination on home; "" is floating */
-  var context = "home";     /* where the composer currently sits */
+  var view = "home";
+  var openBook = null;
+  var openEntry = null;
+  var selected = "";
+  var context = "home";
   var composing = false;
   var finding = false;
-  var scope = null;        /* a container to stay inside, or null for everything */
+  var scope = null;
   var clips = [];
   var dragDepth = 0;
 
@@ -38,7 +38,7 @@
   var el = {};
   [ "entry-form", "entry", "thesis", "count", "hint", "next-entry", "dest-echo",
     "dest", "dest-btn", "dest-dye", "dest-name", "dest-menu", "dest-fixed",
-    "books", "book-new", "float-btn", "float-n",
+    "books", "books-empty", "book-new", "float-btn", "float-n",
     "counts", "clips", "attach-btn", "file-input", "dateline", "composer",
     "view-home", "view-book", "view-entry", "results",
     "find", "find-n", "find-scope", "results-head", "results-list", "results-empty",
@@ -52,7 +52,6 @@
       document.getElementById(id);
   });
   el.body = document.body;
-  el.open = document.querySelector(".open");
 
   var hintTimer = null;
 
@@ -69,18 +68,21 @@
     return text.length > max ? text.slice(0, max - 1).replace(/\s+\S*$/, "") + "…" : text;
   }
 
-  function dateFor(daysAgo) {
-    var d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - daysAgo);
-    return d;
-  }
-
-  function stamp(daysAgo) {
-    var d = dateFor(daysAgo);
+  function stamp(at) {
+    var d = new Date(at);
     var month = d.toLocaleDateString(undefined, { month: "short" })
       .replace(".", "").toUpperCase();
     return String(d.getDate()).padStart(2, "0") + " " + month + " " + d.getFullYear();
+  }
+
+  function timeOf(passage) {
+    return new Date(passage.at)
+      .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function dayKey(at) {
+    var d = new Date(at);
+    return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
   }
 
   function containers() { return notebooks.concat([floating]); }
@@ -104,26 +106,30 @@
   }
 
   function openingLine(entry) {
-    var first = entry.passages.slice()
-      .sort(function (a, b) { return b.daysAgo - a.daysAgo; })[0];
+    var first = inOrder(entry.passages)[0];
     return (first.text.split("\n")[0] || "").trim();
   }
 
-  /* an entry is named by however it opened */
-  function titleOf(entry) {
-    return clamp(openingLine(entry), 64);
+  function titleOf(entry) { return clamp(openingLine(entry), 64); }
+
+  function entryNo(entry) { return String(entry.n).padStart(4, "0"); }
+  function entryLabel(entry) { return "Entry " + entryNo(entry); }
+
+  /* oldest first, which is the order they were written */
+  function inOrder(passages) {
+    return passages.slice().sort(function (a, b) { return a.at - b.at; });
+  }
+
+  function entryStarted(entry) {
+    return Math.min.apply(null, entry.passages.map(function (p) { return p.at; }));
+  }
+
+  function entryTouched(entry) {
+    return Math.max.apply(null, entry.passages.map(function (p) { return p.at; }));
   }
 
   function entryWords(entry) {
     return entry.passages.reduce(function (n, p) { return n + wordsIn(p.text); }, 0);
-  }
-
-  function entryTouched(entry) {
-    return Math.min.apply(null, entry.passages.map(function (p) { return p.daysAgo; }));
-  }
-
-  function entryStarted(entry) {
-    return Math.max.apply(null, entry.passages.map(function (p) { return p.daysAgo; }));
   }
 
   function entryClips(entry) {
@@ -134,57 +140,34 @@
     return container.entries.reduce(function (n, e) { return n + entryWords(e); }, 0);
   }
 
-  function byRecency(a, b) { return entryTouched(a) - entryTouched(b); }
+  /* most recently touched first */
+  function byRecency(a, b) { return entryTouched(b) - entryTouched(a); }
 
-  /* the row's second line: the latest sitting, minus whatever the title
-     already showed */
+  function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
+
+  /* a time is only worth showing when the date alone doesn't tell them apart */
+  function sharesDay(passages, passage) {
+    var key = dayKey(passage.at);
+    return passages.filter(function (p) { return dayKey(p.at) === key; }).length > 1;
+  }
+
   function snipFor(entry) {
-    var latest = entry.passages.slice()
-      .sort(function (a, b) { return a.daysAgo - b.daysAgo; })[0]
-      .text.replace(/\s+/g, " ");
+    var passages = inOrder(entry.passages);
+    var latest = passages[passages.length - 1].text.replace(/\s+/g, " ");
 
     if (entry.passages.length > 1) { return clamp(latest, 118); }
 
-    /* one sitting: show whatever the title didn't. If the title already ran
-       out of room, a continuation would start mid-thought — say nothing. */
     var opening = openingLine(entry);
     if (opening.length > 64) { return ""; }
     return clamp(latest.slice(opening.length).trim(), 118);
   }
 
-  function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
-
-  function entryNo(entry) { return String(entry.n).padStart(4, "0"); }
-
-  function entryLabel(entry) { return "Entry " + entryNo(entry); }
-
-  /* one sequence for the whole notebook: the next entry anywhere takes the
-     next number, whatever it ends up filed in */
   function nextNumber() {
     var top = 0;
     containers().forEach(function (c) {
       c.entries.forEach(function (e) { if (e.n > top) { top = e.n; } });
     });
     return top + 1;
-  }
-
-  function timeOf(passage) {
-    if (!passage.at) { return ""; }
-    return new Date(passage.at)
-      .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  }
-
-  /* oldest first, and within a day, in the order they were written */
-  function inOrder(passages) {
-    return passages.slice().sort(function (a, b) {
-      if (a.daysAgo !== b.daysAgo) { return b.daysAgo - a.daysAgo; }
-      return (a.at || 0) - (b.at || 0);
-    });
-  }
-
-  /* a time is only worth showing when the date alone doesn't tell them apart */
-  function sharesDay(passages, passage) {
-    return passages.filter(function (p) { return p.daysAgo === passage.daysAgo; }).length > 1;
   }
 
   function dyeNode(name) {
@@ -199,6 +182,15 @@
     if (className) { node.className = className; }
     if (text !== undefined) { node.textContent = text; }
     return node;
+  }
+
+  /* --- writing through to storage ----------------------------------------- */
+
+  function save(entry, container) {
+    entry.book = container.loose ? "" : container.id;
+    Store.putEntry(entry).catch(function (err) {
+      say("Couldn't save that — " + (err && err.name ? err.name : "storage error"));
+    });
   }
 
   /* --- routing ------------------------------------------------------------ */
@@ -261,11 +253,10 @@
       el.destFixed.textContent = "→ " + entryLabel(openEntry);
     }
 
-    el.entry.placeholder = onEntry
-      ? "Pick it up…"
-      : "A line, a scrap, a thought…";
-
-    if (!el.hint.classList.contains("slate__hint--done")) { el.hint.textContent = restingHint(); }
+    el.entry.placeholder = onEntry ? "Pick it up…" : "A line, a scrap, a thought…";
+    if (!el.hint.classList.contains("slate__hint--done")) {
+      el.hint.textContent = restingHint();
+    }
   }
 
   function restingHint() {
@@ -308,6 +299,7 @@
       el.books.appendChild(li);
     });
 
+    el.booksEmpty.hidden = notebooks.length > 0;
     el.floatN.textContent = num(floating.entries.length);
     renderCounts();
   }
@@ -320,13 +312,13 @@
   }
 
   function renderCounts() {
-    var entries = 0, words = 0, oldest = 0;
+    var entries = 0, words = 0, oldest = null;
     containers().forEach(function (c) {
       entries += c.entries.length;
       words += countWords(c);
       c.entries.forEach(function (e) {
         var started = entryStarted(e);
-        if (started > oldest) { oldest = started; }
+        if (oldest === null || started < oldest) { oldest = started; }
       });
     });
 
@@ -334,8 +326,8 @@
     el.counts.appendChild(countItem("Notebooks", num(notebooks.length)));
     el.counts.appendChild(countItem("Entries", num(entries)));
     el.counts.appendChild(countItem("Words", num(words)));
-    el.counts.appendChild(countItem("Kept since", dateFor(oldest)
-      .toLocaleDateString(undefined, { month: "short", year: "numeric" })));
+    el.counts.appendChild(countItem("Kept since", oldest === null ? "—" :
+      new Date(oldest).toLocaleDateString(undefined, { month: "short", year: "numeric" })));
   }
 
   el.books.addEventListener("click", function (event) {
@@ -424,12 +416,22 @@
 
     renderPassages();
     moveComposer(el.slotEntry, "entry");
-    el.pickupDate.textContent = "Today · " + stamp(0);
+    el.pickupDate.textContent = "Today · " + stamp(Date.now());
   }
 
-  function clipNode(clip) {
-    var li = elem("li", "clip clip--still");
-    li.appendChild(elem("span", "clip__mark", clip.mark));
+  function clipNode(clip, still) {
+    var li = elem("li", "clip" + (still ? " clip--still" : ""));
+
+    if (clip.thumb) {
+      var img = document.createElement("img");
+      img.className = "clip__thumb";
+      img.src = clip.thumb;
+      img.alt = "";
+      li.appendChild(img);
+    } else {
+      li.appendChild(elem("span", "clip__mark", clip.mark));
+    }
+
     var body = elem("div", "clip__body");
     body.appendChild(elem("span", "clip__name", clip.name));
     body.appendChild(elem("span", "clip__meta", clip.meta));
@@ -440,30 +442,47 @@
   function renderPassages() {
     el.entryPassages.textContent = "";
 
-    inOrder(openEntry.passages)
-      .forEach(function (passage) {
-        var li = elem("li", "passage");
+    inOrder(openEntry.passages).forEach(function (passage) {
+      var li = elem("li", "passage");
 
-        var when = elem("p", "passage__stamp stamp", stamp(passage.daysAgo));
-        if (sharesDay(openEntry.passages, passage) && timeOf(passage)) {
-          when.appendChild(elem("span", "passage__time", timeOf(passage)));
-        }
-        li.appendChild(when);
+      var when = elem("p", "passage__stamp stamp", stamp(passage.at));
+      if (sharesDay(openEntry.passages, passage)) {
+        when.appendChild(elem("span", "passage__time", timeOf(passage)));
+      }
+      li.appendChild(when);
 
-        var body = elem("div", "passage__body");
-        passage.text.split("\n").forEach(function (line) {
-          if (line.trim()) { body.appendChild(elem("p", "passage__text", line)); }
-        });
-
-        if (passage.clips.length) {
-          var list = elem("ul", "clips clips--still");
-          passage.clips.forEach(function (c) { list.appendChild(clipNode(c)); });
-          body.appendChild(list);
-        }
-
-        li.appendChild(body);
-        el.entryPassages.appendChild(li);
+      var body = elem("div", "passage__body");
+      passage.text.split("\n").forEach(function (line) {
+        if (line.trim()) { body.appendChild(elem("p", "passage__text", line)); }
       });
+
+      if (passage.clips.length) {
+        var list = elem("ul", "clips clips--still");
+        passage.clips.forEach(function (c) {
+          var node = clipNode(c, true);
+          if (c.href || c.id) {
+            node.classList.add("clip--open");
+            node.addEventListener("click", function () { openClip(c); });
+          }
+          list.appendChild(node);
+        });
+        body.appendChild(list);
+      }
+
+      li.appendChild(body);
+      el.entryPassages.appendChild(li);
+    });
+  }
+
+  /* a clipped thing should open when you ask it to */
+  function openClip(clip) {
+    if (clip.href) { window.open(clip.href, "_blank", "noopener"); return; }
+    Store.getFile(clip.id).then(function (blob) {
+      if (!blob) { return; }
+      var url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    });
   }
 
   /* --- search ------------------------------------------------------------- */
@@ -535,7 +554,7 @@
         if (hit) { found.push({ entry: entry, container: c, hit: hit }); }
       });
     });
-    found.sort(function (a, b) { return entryTouched(a.entry) - entryTouched(b.entry); });
+    found.sort(function (a, b) { return entryTouched(b.entry) - entryTouched(a.entry); });
 
     el.findN.textContent = found.length ? String(found.length) : "";
     el.resultsHead.textContent = (found.length === 1 ? "1 entry" : found.length + " entries") +
@@ -562,7 +581,6 @@
     }
   });
 
-  /* drop the scope to widen the same query to everything */
   el.findScope.addEventListener("click", function () {
     scope = null;
     renderScope();
@@ -599,9 +617,11 @@
     }
 
     el.destMenu.appendChild(option(floating, "", "dest__opt--none"));
-    var sep = elem("li", "dest__sep");
-    sep.setAttribute("role", "presentation");
-    el.destMenu.appendChild(sep);
+    if (notebooks.length) {
+      var sep = elem("li", "dest__sep");
+      sep.setAttribute("role", "presentation");
+      el.destMenu.appendChild(sep);
+    }
     notebooks.forEach(function (b) { el.destMenu.appendChild(option(b, b.id)); });
   }
 
@@ -664,7 +684,7 @@
   });
 
   function renderSelection() {
-    var book = containerById(selected);
+    var book = containerById(selected) || floating;
     el.destDye.className = "dye dye--" + book.dye;
     el.destName.textContent = book.loose ? "Floating thought" : book.name;
     el.destEcho.textContent = book.loose ? "floating" : book.name;
@@ -673,7 +693,7 @@
   /* --- clipped resources --------------------------------------------------
 
      Paste a URL, paste a screenshot, drop a file anywhere, or use Attach.
-     Nothing is uploaded — name, kind and size are held until storage lands. */
+     Files are kept in IndexedDB alongside the entry; nothing is uploaded. */
 
   function isUrl(text) {
     return /^(https?:\/\/|www\.)\S+$/i.test(text.trim());
@@ -736,9 +756,15 @@
 
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (file) {
-      var clip = { mark: markFor(file), name: file.name,
-                   meta: formatSize(file.size), thumb: null };
+      var clip = {
+        id: "f" + Date.now() + Math.random().toString(36).slice(2, 8),
+        mark: markFor(file),
+        name: file.name,
+        meta: formatSize(file.size),
+        thumb: null
+      };
       clips.push(clip);
+      Store.putFile(clip.id, file);
 
       if (file.type.indexOf("image/") === 0 && file.size < 8 * 1024 * 1024) {
         var reader = new FileReader();
@@ -754,22 +780,7 @@
     el.clips.hidden = clips.length === 0;
 
     clips.forEach(function (clip, index) {
-      var li = elem("li", "clip");
-
-      if (clip.thumb) {
-        var img = document.createElement("img");
-        img.className = "clip__thumb";
-        img.src = clip.thumb;
-        img.alt = "";
-        li.appendChild(img);
-      } else {
-        li.appendChild(elem("span", "clip__mark", clip.mark));
-      }
-
-      var body = elem("div", "clip__body");
-      body.appendChild(elem("span", "clip__name", clip.name));
-      body.appendChild(elem("span", "clip__meta", clip.meta));
-      li.appendChild(body);
+      var li = clipNode(clip, false);
 
       var remove = elem("button", "clip__x", "×");
       remove.type = "button";
@@ -942,12 +953,9 @@
     var clipped = clips.length ? " · " + clipCount() : "";
     var counted = words ? " · " + words + " w" : "";
     var passage = {
-      daysAgo: 0,
       at: Date.now(),
       text: text || clips[0].name,
-      clips: clips.map(function (c) {
-        return { mark: c.mark, name: c.name, meta: c.meta };
-      })
+      clips: clips.slice()
     };
 
     clips = [];
@@ -958,15 +966,17 @@
 
     if (context === "entry") {
       openEntry.passages.push(passage);
+      save(openEntry, openBook);
       renderPassages();
       say("Added to " + entryLabel(openEntry) + counted + clipped);
       el.entry.focus();
       return;
     }
 
-    var container = context === "book" ? openBook : containerById(selected);
-    var entry = { n: nextNumber(), passages: [passage] };
+    var container = context === "book" ? openBook : (containerById(selected) || floating);
+    var entry = { n: nextNumber(), book: "", passages: [passage] };
     container.entries.push(entry);
+    save(entry, container);
 
     if (context === "book") {
       renderBookEntries(container.entries.slice().sort(byRecency));
@@ -992,8 +1002,6 @@
   var RULE = "────────────────────────────────────────";
   var HEAVY = "════════════════════════════════════════";
 
-  function today() { return stamp(0); }
-
   function reportEntry(entry, container, nested) {
     var head = "ENTRY " + entryNo(entry);
     if (!nested) { head += " · " + (container.loose ? "Floating" : container.name); }
@@ -1001,9 +1009,7 @@
     var out = [head, "Started " + stamp(entryStarted(entry)), ""];
 
     inOrder(entry.passages).forEach(function (passage) {
-      var when = stamp(passage.daysAgo);
-      if (timeOf(passage)) { when += " · " + timeOf(passage); }
-      out.push(when);
+      out.push(stamp(passage.at) + " · " + timeOf(passage));
       out.push(passage.text);
       passage.clips.forEach(function (c) {
         out.push("    [" + c.mark + "] " + c.name + (c.meta ? " · " + c.meta : ""));
@@ -1019,7 +1025,7 @@
     var count = entries.length + (entries.length === 1 ? " entry" : " entries");
 
     var out = [container.name.toUpperCase(),
-               nested ? count : count + " · copied " + today(), ""];
+               nested ? count : count + " · copied " + stamp(Date.now()), ""];
 
     entries.forEach(function (entry, i) {
       if (i) { out.push(RULE, ""); }
@@ -1035,7 +1041,7 @@
     containers().forEach(function (c) { entries += c.entries.length; });
 
     var out = ["NOTEBOOK — FULL SNAPSHOT",
-               "Copied " + today() + " · " + notebooks.length + " notebooks · " +
+               "Copied " + stamp(Date.now()) + " · " + notebooks.length + " notebooks · " +
                entries + (entries === 1 ? " entry" : " entries"), ""];
 
     containers().forEach(function (c) {
@@ -1045,8 +1051,6 @@
 
     return out.join("\n").trim();
   }
-
-  /* --- getting it to the clipboard ---------------------------------------- */
 
   function legacyCopy(text) {
     var pad = document.createElement("textarea");
@@ -1113,9 +1117,7 @@
     copyOut(reportEverything(), el.copyAll, "the full snapshot");
   });
 
-  function closeReport() {
-    el.report.hidden = true;
-  }
+  function closeReport() { el.report.hidden = true; }
 
   el.reportClose.addEventListener("click", closeReport);
   el.reportText.addEventListener("keydown", function (event) {
@@ -1155,10 +1157,17 @@
       var name = input.value.trim();
       if (name === "") { closeNewBook(form); return; }
 
-      var id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-      notebooks.push({ id: id, name: name,
-                       dye: dyes[notebooks.length % dyes.length], entries: [] });
-      selected = id;
+      var book = {
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now(),
+        name: name,
+        dye: dyes[notebooks.length % dyes.length],
+        order: notebooks.length,
+        entries: []
+      };
+      notebooks.push(book);
+      Store.putBook(book);
+
+      selected = book.id;
       closeNewBook(form);
       renderBooks();
       renderSelection();
@@ -1222,13 +1231,28 @@
   setInterval(writeDateline, 30000);
   narrow.addEventListener("change", writeDateline);
 
-  renderClips();
-  updateCount();
-  route();
-  grow();
+  Store.load().then(function (data) {
+    data.books.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    data.books.forEach(function (b) {
+      notebooks.push({ id: b.id, name: b.name, dye: b.dye, order: b.order, entries: [] });
+    });
 
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(measureThesis);
-  }
-  measureThesis();
+    data.entries.forEach(function (entry) {
+      var container = containerById(entry.book) || floating;
+      container.entries.push(entry);
+    });
+  }).catch(function () {
+    /* no storage (private mode, or it's blocked) — run in memory for now */
+    say("Storage isn't available here, so nothing will be kept after you close this.");
+  }).then(function () {
+    el.body.dataset.ready = "yes";
+    renderClips();
+    updateCount();
+    route();
+    grow();
+    measureThesis();
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(measureThesis);
+    }
+  });
 })();
