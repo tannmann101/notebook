@@ -241,9 +241,6 @@ body[data-mode="compose"] .recede {
   color: var(--bone);
   transition: max-height 300ms ease, opacity 200ms ease;
 }
-.thesis br { display: none; }
-@media (min-width: 34em) { .thesis br { display: inline; } }
-
 body[data-mode="compose"] .thesis { max-height: 0; opacity: 0; }
 
 /* --- the slate: where you write ---------------------------------------- */
