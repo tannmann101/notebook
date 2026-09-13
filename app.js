@@ -1046,12 +1046,20 @@
      flight when the entry was written, get filled in when you open the entry. */
   function warmPosters(entry, container) {
     var pending = [];
+    var loose = [];
 
     entry.passages.forEach(function (passage) {
       (passage.clips || []).forEach(function (clip) {
         if (!clip.thumb && clip.href && posterFor(clip.href)) { pending.push(clip); }
       });
+      /* written into the line, so there's no clip to hang the bytes on — they
+         go in the session cache, which is where a copy looks for them */
+      linksIn(passage.text).forEach(function (href) {
+        if (posterFor(href)) { loose.push(href); }
+      });
     });
+
+    loose.forEach(function (href) { posterBytes(href, function () {}); });
     if (!pending.length) { return; }
 
     var left = pending.length;
@@ -1470,8 +1478,8 @@
     return found.map(function (url) { return url.replace(TAIL, ""); });
   }
 
-  function posterHtml(href, poster) {
-    return '<a href="' + escapeHtml(href) + '"><img src="' + escapeHtml(poster) +
+  function posterHtml(href, src) {
+    return '<a href="' + escapeHtml(href) + '"><img src="' + escapeHtml(src) +
            '" alt="" width="320" style="max-width:320px;height:auto' +
            ';border-radius:3px"></a>';
   }
@@ -1482,6 +1490,17 @@
     var out = [];
     var spent = 0;
     var shown = Object.create(null);   /* one poster per video within a sitting */
+
+    /* Bytes beat an address. Nothing that receives a paste will go and fetch a
+       remote image — not Messages, not Notes — so the picture has to travel
+       with the text or it doesn't arrive. The address is the last resort, for
+       when the fetch was refused and there are no bytes to send. */
+    function pick(poster, stored) {
+      var data = stored || posterCache[poster];
+      if (!data || spent + data.length > EMBED_BUDGET) { return poster; }
+      spent += data.length;
+      return data;
+    }
 
     blocks.forEach(function (b) {
       if (b.k === "rule" || b.k === "heavy") { out.push("<hr>"); return; }
@@ -1499,7 +1518,7 @@
           var poster = posterFor(url);
           if (!poster || shown[poster]) { return; }
           shown[poster] = true;
-          out.push("<p>" + posterHtml(url, poster) + "</p>");
+          out.push("<p>" + posterHtml(url, pick(poster)) + "</p>");
         });
         return;
       }
@@ -1519,7 +1538,7 @@
         if (poster) { shown[poster] = true; }
 
         out.push("<p>" +
-          (poster ? posterHtml(c.href, poster) + "<br>" : "") +
+          (poster ? posterHtml(c.href, pick(poster, c.thumb)) + "<br>" : "") +
           '<a href="' + href + '">' + label + "</a></p>");
         return;
       }
