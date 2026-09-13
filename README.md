@@ -84,9 +84,15 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 
 ## Installing it
 
-Published by GitHub Actions to GitHub Pages on every push (`.github/workflows/pages.yml`).
-Enable it once: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-The site is then at `https://<owner>.github.io/notebook/`.
+Published by GitHub Actions to GitHub Pages on every push
+(`.github/workflows/pages.yml`).
+
+**One manual step, once.** In the repository: **Settings → Pages → Build and
+deployment → Source: GitHub Actions**. The workflow token is allowed to publish
+to Pages but not to create the site, so this can't be automated — until it's
+switched on, every run fails with *Get Pages site failed*. Afterwards, re-run
+the workflow (or push anything) and the site appears at
+`https://<owner>.github.io/notebook/`.
 
 | | |
 | --- | --- |
