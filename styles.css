@@ -48,6 +48,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -154,13 +156,8 @@ body[data-mode="compose"] .lamp { opacity: 1; }
 .dye--none      { background: transparent; box-shadow: inset 0 0 0 1px var(--lead-hi); }
 
 /* everything that steps back while you write */
-.rail, .books-wrap, .floaters, .colophon {
-  transition: opacity 320ms ease, filter 320ms ease;
-}
-body[data-mode="compose"] .rail,
-body[data-mode="compose"] .books-wrap,
-body[data-mode="compose"] .floaters,
-body[data-mode="compose"] .colophon {
+.recede { transition: opacity 320ms ease, filter 320ms ease; }
+body[data-mode="compose"] .recede {
   opacity: var(--dim);
   filter: blur(1.2px);
   pointer-events: none;
@@ -521,6 +518,196 @@ body[data-drop="on"] .lamp { opacity: 1; }
   border-radius: 2px;
 }
 
+/* --- views -------------------------------------------------------------- */
+
+.view, .home-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2.5rem, 5.5vw, 3.5rem);
+}
+.listing { display: flex; flex-direction: column; gap: 1.4rem; }
+
+.empty { margin: 1.5rem 0 0; color: var(--ash-dim); font-style: italic; }
+
+.crumb { margin-bottom: -1rem; }
+.crumb__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+.crumb__back:hover { color: var(--brass); }
+
+/* --- a notebook's head -------------------------------------------------- */
+
+.book-head, .entry-head { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.book-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.2rem 0.85rem;
+}
+.book-head .dye { height: 1.7rem; width: 4px; grid-row: 1 / span 2; }
+.book-head__name {
+  grid-column: 2;
+  margin: 0;
+  font-size: clamp(1.8rem, 1.2rem + 2.3vw, 2.5rem);
+  font-weight: 500;
+  font-stretch: 88%;
+  line-height: 1.05;
+  letter-spacing: -0.024em;
+  color: var(--bone);
+}
+.book-head__meta, .entry-head__meta { grid-column: 2; margin: 0; color: var(--ash-dim); }
+
+.entry-head__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 1.1rem + 2vw, 2.2rem);
+  font-weight: 500;
+  font-stretch: 90%;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--bone);
+}
+
+/* --- find --------------------------------------------------------------- */
+
+.find {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--lead);
+  transition: border-color 160ms ease;
+}
+.find:focus-within { border-bottom-color: var(--brass); }
+
+.find__label {
+  flex: 0 0 auto;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+}
+.find__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bone);
+  caret-color: var(--brass);
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 0.35rem 0;
+}
+.find__input:focus { outline: none; }
+.find__input::placeholder { color: var(--ash-dim); }
+.find__input::-webkit-search-cancel-button,
+.find__input::-webkit-search-decoration { -webkit-appearance: none; }
+.find__n { flex: 0 0 auto; color: var(--brass); }
+
+mark {
+  background: transparent;
+  color: var(--brass-hi);
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+/* --- entry rows --------------------------------------------------------- */
+
+.entries { list-style: none; margin: 0; padding: 0; }
+
+.row { border-bottom: 1px solid var(--lead); }
+.row:first-child { border-top: 1px solid var(--lead); }
+
+.row__btn {
+  display: block;
+  width: 100%;
+  margin-left: -0.65rem;
+  padding: 0.9rem 0.5rem 1rem 0.65rem;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.row__btn:hover { background: var(--stone); border-left-color: var(--brass-dim); }
+
+.row__head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.35rem; }
+.row__stamp { color: var(--ash-dim); }
+.row__where { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ash); }
+.row__where .dye { height: 11px; }
+.row__folio { margin-left: auto; color: var(--ash-dim); }
+
+.row__title {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--bone);
+}
+.row__snip { margin: 0; font-size: 0.92rem; line-height: 1.55; color: var(--ash); }
+.row__meta { margin: 0.4rem 0 0; color: var(--ash-dim); }
+
+/* --- an entry's sittings ------------------------------------------------ */
+
+.passages { list-style: none; margin: 0; padding: 0; }
+
+.passage {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0 1.6rem;
+  padding: 1.4rem 0;
+  border-top: 1px solid var(--lead);
+}
+.passage:first-child { border-top: 0; padding-top: 0; }
+
+.passage__stamp { margin: 0; padding-top: 0.3rem; color: var(--ash-dim); }
+.passage__body { min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.passage__text {
+  margin: 0;
+  font-size: 1.04rem;
+  line-height: 1.62;
+  color: var(--bone);
+}
+
+.clips--still { margin-top: 0; }
+.clip--still { background: transparent; border-left-color: var(--lead-hi); }
+
+/* --- picking it back up ------------------------------------------------- */
+
+.pickup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding-top: 1.3rem;
+  border-top: 1px solid var(--lead-hi);
+}
+.pickup__date {
+  margin: 0;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.dest-fixed { flex: 0 0 auto; color: var(--ash); }
+.hint__open {
+  color: var(--brass-hi);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* --- the notebook index ------------------------------------------------ */
 
 .books-wrap { position: relative; display: flex; flex-direction: column; }
@@ -752,6 +939,10 @@ body[data-drop="on"] .lamp { opacity: 1; }
 
 @media (max-width: 34em) {
   .key { display: none; }
+  .passage { grid-template-columns: 1fr; gap: 0.5rem; }
+  .passage__stamp { padding-top: 0; }
+  .row__folio { margin-left: 0; }
+  .row__head { flex-wrap: wrap; gap: 0.4rem 0.6rem; }
   #dateline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dest__menu { left: 0; min-width: min(15rem, 78vw); }
   .colophon__note { margin-left: 0; }

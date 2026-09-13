@@ -16,8 +16,8 @@
 <div class="lamp" aria-hidden="true"></div>
 <div class="drop" aria-hidden="true"><div class="drop__frame"><p class="drop__text">Drop to clip it to this entry</p></div></div>
 
-<header class="rail">
-  <a class="mark" href="#">
+<header class="rail recede">
+  <a class="mark" href="#/">
     <span class="mark__rule" aria-hidden="true"></span>
     <span class="mark__word">Notebook</span>
   </a>
@@ -29,80 +29,152 @@
 
 <main class="page">
 
-  <section class="open">
-    <p class="eyebrow">Entry <span id="next-folio">F.015</span> &middot; <span id="dest-echo">floating</span></p>
-    <h1 class="thesis" id="thesis">Put it down <br>before it&rsquo;s finished.</h1>
+  <!-- ============================ home ============================ -->
+  <section class="view" id="view-home">
 
-    <form class="slate" id="entry-form" autocomplete="off">
-      <label class="visually-hidden" for="entry">Write an entry</label>
-      <textarea class="slate__area" id="entry" name="entry" rows="1"
-                placeholder="A line, a scrap, a thought&hellip;"></textarea>
-      <ul class="clips" id="clips" hidden></ul>
-      <span class="slate__rule" aria-hidden="true"></span>
+    <section class="open">
+      <p class="eyebrow">Entry <span id="next-folio">F.062</span> &middot; <span id="dest-echo">floating</span></p>
+      <h1 class="thesis" id="thesis">Put it down <br>before it&rsquo;s finished.</h1>
+      <div class="composer-slot" id="slot-home"></div>
+    </section>
 
-      <div class="slate__foot">
-        <div class="dest" id="dest">
-          <span class="dest__arrow" aria-hidden="true">&rarr;</span>
-          <button class="dest__btn" type="button" id="dest-btn"
-                  aria-haspopup="listbox" aria-expanded="false">
-            <span class="dye dye--none" id="dest-dye" aria-hidden="true"></span>
-            <span class="dest__name" id="dest-name">Floating thought</span>
-            <svg class="dest__caret" width="9" height="6" viewBox="0 0 9 6" aria-hidden="true">
-              <path d="M1 1l3.5 3.5L8 1" fill="none" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
-          </button>
-          <ul class="dest__menu" id="dest-menu" role="listbox"
-              aria-label="File this entry in" hidden></ul>
+    <div class="listing">
+      <section class="find recede" aria-label="Search everything">
+        <label class="find__label stamp" for="find-all">Find</label>
+        <input class="find__input" id="find-all" type="search" autocomplete="off"
+               placeholder="Across every notebook&hellip;">
+        <span class="find__n stamp" id="find-all-n"></span>
+      </section>
+
+      <section class="results recede" id="results" hidden aria-label="Search results"></section>
+
+      <div class="home-body recede" id="home-body">
+      <section class="books-wrap" aria-labelledby="books-h">
+        <div class="section-head">
+          <h2 class="section-head__title" id="books-h">Notebooks</h2>
+          <span class="section-head__note stamp" id="books-note">&nbsp;</span>
         </div>
 
-        <button class="slate__attach" type="button" id="attach-btn"
-                title="Attach a file — or just paste a link">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l8.6-8.6a3.7 3.7 0 015.2 5.2l-8.6 8.6a1.8 1.8 0 01-2.6-2.6l7.9-7.9"/>
-          </svg>
-          <span>Attach</span>
+        <ol class="books" id="books"></ol>
+
+        <button class="book-new" type="button" id="book-new">
+          <span class="book-new__plus" aria-hidden="true">+</span>
+          <span>New notebook</span>
         </button>
-        <input class="visually-hidden" type="file" id="file-input" multiple>
+      </section>
 
-        <span class="slate__count stamp" id="count">0 w</span>
-        <button class="slate__enter" type="submit">Enter<span aria-hidden="true"> &crarr;</span></button>
+      <section class="floaters" aria-labelledby="float-h">
+        <button class="floaters__btn" type="button" id="float-btn" aria-pressed="false">
+          <span class="floaters__label stamp">Unfiled</span>
+          <span class="floaters__head" id="float-h">Floating thoughts</span>
+          <span class="floaters__n"><b id="float-n">0</b> entries &middot; <b id="float-w">0</b> words</span>
+        </button>
+        <p class="floaters__note">Thoughts that never got put away. They keep just fine here.</p>
+        </section>
       </div>
-    </form>
-
-    <p class="slate__hint" id="hint" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
-  <section class="books-wrap" aria-labelledby="books-h">
-    <div class="section-head">
-      <h2 class="section-head__title" id="books-h">Notebooks</h2>
-      <span class="section-head__note stamp" id="books-note">&nbsp;</span>
+  <!-- ========================== a notebook ========================== -->
+  <section class="view" id="view-book" hidden>
+    <div class="crumb recede">
+      <a class="crumb__back" href="#/"><span aria-hidden="true">&larr;</span> Notebooks</a>
     </div>
 
-    <ol class="books" id="books"></ol>
+    <header class="book-head recede">
+      <span class="dye" id="book-dye" aria-hidden="true"></span>
+      <h1 class="book-head__name" id="book-name">&nbsp;</h1>
+      <p class="book-head__meta stamp" id="book-meta">&nbsp;</p>
+    </header>
 
-    <button class="book-new" type="button" id="book-new">
-      <span class="book-new__plus" aria-hidden="true">+</span>
-      <span>New notebook</span>
-    </button>
+    <div class="composer-slot" id="slot-book"></div>
+
+    <div class="listing">
+      <section class="find recede" aria-label="Search this notebook">
+        <label class="find__label stamp" for="find-book">Find</label>
+        <input class="find__input" id="find-book" type="search" autocomplete="off"
+               placeholder="In this notebook&hellip;">
+        <span class="find__n stamp" id="find-book-n"></span>
+      </section>
+
+      <ol class="entries recede" id="book-entries"></ol>
+      <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
+    </div>
   </section>
 
-  <section class="floaters" aria-labelledby="float-h">
-    <button class="floaters__btn" type="button" id="float-btn" aria-pressed="false">
-      <span class="floaters__label stamp">Unfiled</span>
-      <span class="floaters__head" id="float-h">Floating thoughts</span>
-      <span class="floaters__n"><b id="float-n">19</b> entries &middot; <b id="float-w">2,344</b> words</span>
-    </button>
-    <p class="floaters__note">Thoughts that never got put away. They keep just fine here.</p>
+  <!-- =========================== an entry =========================== -->
+  <section class="view" id="view-entry" hidden>
+    <div class="crumb recede">
+      <a class="crumb__back" href="#/" id="entry-back"><span aria-hidden="true">&larr;</span> Back</a>
+    </div>
+
+    <header class="entry-head recede">
+      <p class="eyebrow" id="entry-folio">&nbsp;</p>
+      <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
+      <p class="entry-head__meta stamp" id="entry-meta">&nbsp;</p>
+    </header>
+
+    <ol class="passages recede" id="entry-passages"></ol>
+
+    <div class="pickup">
+      <p class="pickup__date stamp" id="pickup-date">&nbsp;</p>
+      <div class="composer-slot" id="slot-entry"></div>
+    </div>
   </section>
 
 </main>
 
-<footer class="colophon">
+<footer class="colophon recede" id="colophon">
   <dl class="counts" id="counts"></dl>
-  <p class="colophon__note">Sample figures, for setting the look. Nothing is stored.</p>
+  <p class="colophon__note">Sample entries, for setting the look. Nothing is stored.</p>
 </footer>
 
+<!-- one composer, moved to whichever view is asking -->
+<div class="composer" id="composer">
+  <form class="slate" id="entry-form" autocomplete="off">
+    <label class="visually-hidden" for="entry">Write an entry</label>
+    <textarea class="slate__area" id="entry" name="entry" rows="1"
+              placeholder="A line, a scrap, a thought&hellip;"></textarea>
+
+    <ul class="clips" id="clips" hidden></ul>
+    <span class="slate__rule" aria-hidden="true"></span>
+
+    <div class="slate__foot">
+      <div class="dest" id="dest">
+        <span class="dest__arrow" aria-hidden="true">&rarr;</span>
+        <button class="dest__btn" type="button" id="dest-btn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="dye dye--none" id="dest-dye" aria-hidden="true"></span>
+          <span class="dest__name" id="dest-name">Floating thought</span>
+          <svg class="dest__caret" width="9" height="6" viewBox="0 0 9 6" aria-hidden="true">
+            <path d="M1 1l3.5 3.5L8 1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          </svg>
+        </button>
+        <ul class="dest__menu" id="dest-menu" role="listbox"
+            aria-label="File this entry in" hidden></ul>
+      </div>
+
+      <span class="dest-fixed stamp" id="dest-fixed" hidden></span>
+
+      <button class="slate__attach" type="button" id="attach-btn"
+              title="Attach a file — or just paste a link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l8.6-8.6a3.7 3.7 0 015.2 5.2l-8.6 8.6a1.8 1.8 0 01-2.6-2.6l7.9-7.9"/>
+        </svg>
+        <span>Attach</span>
+      </button>
+      <input class="visually-hidden" type="file" id="file-input" multiple>
+
+      <span class="slate__count stamp" id="count">0 w</span>
+      <button class="slate__enter" type="submit">Enter<span aria-hidden="true"> &crarr;</span></button>
+    </div>
+  </form>
+
+  <p class="slate__hint" id="hint" role="status" aria-live="polite"></p>
+</div>
+
+<script src="data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

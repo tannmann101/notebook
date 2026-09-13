@@ -1,103 +1,170 @@
-/* Notebook — home screen.
+/* Notebook.
 
-   Two states:
-     rest     — an index of notebooks, with unfiled thoughts kept apart.
-     compose  — focus the writing area and the room goes down, a lamp comes
-                up, and what you type takes the headline's place at display
-                scale. Enter files it. Esc steps back.
+   An entry is a thread. You start it with a line, and every time you come back
+   you add a dated sitting to the same thread. Entries live in a notebook, or
+   they float.
 
-   Figures below are samples. Storage comes next; nothing survives a refresh. */
+   Three views, one composer. The composer moves to whichever view is asking:
+   on the home screen it starts an entry, in a notebook it starts one already
+   filed there, and inside an entry it picks the thread back up.
+
+   Nothing is stored. Figures come from data.js and reset on refresh. */
 
 (function () {
   "use strict";
 
-  /* --- data -------------------------------------------------------------- */
-
-  var notebooks = [
-    { id: "field-notes", name: "Field notes", dye: "verdigris", entries: 37, words: 15170, lastDays: 1 },
-    { id: "scraps",      name: "Scraps",      dye: "lead",      entries: 31, words:  4340, lastDays: 0 },
-    { id: "workshop",    name: "Workshop",    dye: "oxblood",   entries: 24, words: 12480, lastDays: 2 },
-    { id: "half-built",  name: "Half-built",  dye: "brass",     entries: 17, words: 21930, lastDays: 9 },
-    { id: "kitchen",     name: "Kitchen",     dye: "bone",      entries: 11, words:  4180, lastDays: 4 },
-    { id: "margins",     name: "Margins",     dye: "slate",     entries:  8, words:   760, lastDays: 16 }
-  ];
-
-  /* Entries nobody filed. Not a notebook, and not counted as one. */
-  var floating = { id: "", name: "Floating thought", dye: "none",
-                   entries: 19, words: 2344, lastDays: 0 };
+  var data = window.NOTEBOOK_DATA;
+  var notebooks = data.notebooks;
+  var floating = { id: "floating", name: "Floating thoughts", dye: "none",
+                   entries: data.floating, loose: true };
 
   var dyes = ["brass", "verdigris", "oxblood", "bone", "slate", "lead"];
-  var keptSince = "4 Mar 2024";
 
-  var nextFolio = 15;
-  var selected = "";        /* "" is floating */
+  var view = "home";        /* home | book | entry */
+  var openBook = null;      /* container being viewed */
+  var openEntry = null;     /* entry being viewed */
+  var selected = "";        /* composer destination on home; "" is floating */
+  var context = "home";     /* where the composer currently sits */
   var composing = false;
+  var clips = [];
+  var dragDepth = 0;
 
   var HINT_REST = "Left unfiled, it stays a floating thought — kept, just not put away.";
   var HINT_WRITE = "Enter files it · Shift + Enter for a new line · Paste or drop to clip · Esc steps back";
+  var HINT_PICKUP = "Enter adds it to this entry, dated today · Esc steps back";
 
-  /* --- elements ---------------------------------------------------------- */
-
-  var el = {
-    body: document.body,
-    form: document.getElementById("entry-form"),
-    area: document.getElementById("entry"),
-    thesis: document.getElementById("thesis"),
-    count: document.getElementById("count"),
-    hint: document.getElementById("hint"),
-    folio: document.getElementById("next-folio"),
-    destEcho: document.getElementById("dest-echo"),
-    dest: document.getElementById("dest"),
-    destBtn: document.getElementById("dest-btn"),
-    destDye: document.getElementById("dest-dye"),
-    destName: document.getElementById("dest-name"),
-    destMenu: document.getElementById("dest-menu"),
-    books: document.getElementById("books"),
-    booksNote: document.getElementById("books-note"),
-    bookNew: document.getElementById("book-new"),
-    floatBtn: document.getElementById("float-btn"),
-    floatN: document.getElementById("float-n"),
-    floatW: document.getElementById("float-w"),
-    counts: document.getElementById("counts"),
-    clips: document.getElementById("clips"),
-    attachBtn: document.getElementById("attach-btn"),
-    fileInput: document.getElementById("file-input"),
-    dateline: document.getElementById("dateline"),
-    open: document.querySelector(".open")
-  };
+  var el = {};
+  [ "entry-form", "entry", "thesis", "count", "hint", "next-folio", "dest-echo",
+    "dest", "dest-btn", "dest-dye", "dest-name", "dest-menu", "dest-fixed",
+    "books", "books-note", "book-new", "float-btn", "float-n", "float-w",
+    "counts", "clips", "attach-btn", "file-input", "dateline", "composer",
+    "view-home", "view-book", "view-entry", "home-body", "results",
+    "find-all", "find-all-n", "find-book", "find-book-n",
+    "slot-home", "slot-book", "slot-entry", "book-dye", "book-name", "book-meta",
+    "book-entries", "book-empty", "entry-back", "entry-folio", "entry-title",
+    "entry-meta", "entry-passages", "pickup-date", "colophon"
+  ].forEach(function (id) {
+    el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
+      document.getElementById(id);
+  });
+  el.body = document.body;
+  el.open = document.querySelector(".open");
 
   var hintTimer = null;
 
-  /* --- helpers ----------------------------------------------------------- */
+  /* --- small helpers ------------------------------------------------------ */
 
   function wordsIn(text) {
     var trimmed = text.trim();
     return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
   }
 
-  function folioLabel(n) { return "F." + String(n).padStart(3, "0"); }
   function num(n) { return n.toLocaleString(); }
 
-  function bookById(id) {
+  function clamp(text, max) {
+    return text.length > max ? text.slice(0, max - 1).replace(/\s+\S*$/, "") + "…" : text;
+  }
+
+  function dateFor(daysAgo) {
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - daysAgo);
+    return d;
+  }
+
+  function stamp(daysAgo) {
+    var d = dateFor(daysAgo);
+    var month = d.toLocaleDateString(undefined, { month: "short" })
+      .replace(".", "").toUpperCase();
+    return String(d.getDate()).padStart(2, "0") + " " + month + " " + d.getFullYear();
+  }
+
+  function ago(days) {
+    if (days === 0) { return "today"; }
+    if (days === 1) { return "yesterday"; }
+    if (days < 14) { return days + " days ago"; }
+    if (days < 60) { return Math.round(days / 7) + " weeks ago"; }
+    return Math.round(days / 30) + " months ago";
+  }
+
+  function containers() { return notebooks.concat([floating]); }
+
+  function containerById(id) {
+    if (id === "floating" || id === "") { return floating; }
     for (var i = 0; i < notebooks.length; i += 1) {
       if (notebooks[i].id === id) { return notebooks[i]; }
     }
     return null;
   }
 
-  function current() { return bookById(selected) || floating; }
-
-  function totals() {
-    var t = { entries: floating.entries, words: floating.words };
-    notebooks.forEach(function (b) { t.entries += b.entries; t.words += b.words; });
-    return t;
+  function findEntry(folio) {
+    var found = null;
+    containers().forEach(function (c) {
+      c.entries.forEach(function (e) {
+        if (e.folio === folio) { found = { entry: e, container: c }; }
+      });
+    });
+    return found;
   }
 
-  function sinceLast(days) {
-    if (days === 0) { return "Today"; }
-    if (days === 1) { return "Yesterday"; }
-    if (days < 14) { return days + " days ago"; }
-    return Math.round(days / 7) + " weeks ago";
+  function openingLine(entry) {
+    var first = entry.passages.slice()
+      .sort(function (a, b) { return b.daysAgo - a.daysAgo; })[0];
+    return (first.text.split("\n")[0] || "").trim();
+  }
+
+  /* an entry is named by however it opened */
+  function titleOf(entry) {
+    return clamp(openingLine(entry), 64);
+  }
+
+  function entryWords(entry) {
+    return entry.passages.reduce(function (n, p) { return n + wordsIn(p.text); }, 0);
+  }
+
+  function entryTouched(entry) {
+    return Math.min.apply(null, entry.passages.map(function (p) { return p.daysAgo; }));
+  }
+
+  function entryStarted(entry) {
+    return Math.max.apply(null, entry.passages.map(function (p) { return p.daysAgo; }));
+  }
+
+  function entryClips(entry) {
+    return entry.passages.reduce(function (n, p) { return n + p.clips.length; }, 0);
+  }
+
+  function countWords(container) {
+    return container.entries.reduce(function (n, e) { return n + entryWords(e); }, 0);
+  }
+
+  function byRecency(a, b) { return entryTouched(a) - entryTouched(b); }
+
+  /* the row's second line: the latest sitting, minus whatever the title
+     already showed */
+  function snipFor(entry) {
+    var latest = entry.passages.slice()
+      .sort(function (a, b) { return a.daysAgo - b.daysAgo; })[0]
+      .text.replace(/\s+/g, " ");
+
+    if (entry.passages.length > 1) { return clamp(latest, 118); }
+
+    var opening = openingLine(entry);
+    var shown = opening.length <= 64 ? opening.length : 63;
+    return clamp(latest.slice(shown).trim(), 118);
+  }
+
+  function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
+
+  function nextFolio() {
+    var top = 0;
+    containers().forEach(function (c) {
+      c.entries.forEach(function (e) {
+        var n = parseInt(e.folio.replace("F.", ""), 10);
+        if (n > top) { top = n; }
+      });
+    });
+    return "F." + String(top + 1).padStart(3, "0");
   }
 
   function dyeNode(name) {
@@ -107,116 +174,405 @@
     return d;
   }
 
-  /* --- the notebook index ------------------------------------------------ */
+  function elem(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) { node.className = className; }
+    if (text !== undefined) { node.textContent = text; }
+    return node;
+  }
+
+  /* --- routing ------------------------------------------------------------ */
+
+  function go(hash) {
+    if (window.location.hash === hash) { route(); } else { window.location.hash = hash; }
+  }
+
+  function route() {
+    var hash = window.location.hash || "#/";
+    var parts = hash.replace(/^#\//, "").split("/");
+
+    if (parts[0] === "n" && parts[1]) {
+      var container = containerById(decodeURIComponent(parts[1]));
+      if (container) { showBook(container); return; }
+    }
+    if (parts[0] === "e" && parts[1]) {
+      var hit = findEntry(decodeURIComponent(parts[1]).toUpperCase());
+      if (hit) { showEntry(hit.entry, hit.container); return; }
+    }
+    showHome();
+  }
+
+  function setView(name) {
+    view = name;
+    el.body.dataset.view = name;
+    el.viewHome.hidden = name !== "home";
+    el.viewBook.hidden = name !== "book";
+    el.viewEntry.hidden = name !== "entry";
+    el.colophon.hidden = name !== "home";
+    window.scrollTo(0, 0);
+  }
+
+  /* --- the composer, wherever it's needed --------------------------------- */
+
+  function moveComposer(slot, which) {
+    context = which;
+    slot.appendChild(el.composer);
+
+    var onEntry = which === "entry";
+    el.dest.hidden = which !== "home";
+    el.destFixed.hidden = which === "home";
+
+    if (which === "book") {
+      el.destFixed.textContent = "→ " + openBook.name;
+    } else if (onEntry) {
+      el.destFixed.textContent = "→ picking up " + openEntry.folio;
+    }
+
+    el.entry.placeholder = onEntry
+      ? "Pick it up…"
+      : "A line, a scrap, a thought…";
+
+    if (!el.hint.classList.contains("slate__hint--done")) { el.hint.textContent = restingHint(); }
+  }
+
+  function restingHint() {
+    if (composing) { return context === "entry" ? HINT_PICKUP : HINT_WRITE; }
+    if (context === "entry") { return "Adds a new dated sitting to this entry."; }
+    if (context === "book") { return "Anything you write here is filed in " + openBook.name + "."; }
+    return HINT_REST;
+  }
+
+  /* --- home --------------------------------------------------------------- */
+
+  function showHome() {
+    setView("home");
+    moveComposer(el.slotHome, "home");
+    el.nextFolio.textContent = nextFolio();
+    renderBooks();
+    renderSelection();
+    runSearch(el.findAll, el.findAllN, null);
+  }
 
   function renderBooks() {
     el.books.textContent = "";
 
     notebooks.forEach(function (book) {
-      var li = document.createElement("li");
-      li.className = "book";
-
-      var btn = document.createElement("button");
+      var li = elem("li", "book");
+      var btn = elem("button", "book__btn");
       btn.type = "button";
-      btn.className = "book__btn";
       btn.dataset.id = book.id;
-      btn.setAttribute("aria-pressed", String(selected === book.id));
 
-      var name = document.createElement("span");
-      name.className = "book__name";
+      var name = elem("span", "book__name");
       name.appendChild(dyeNode(book.dye));
       name.appendChild(document.createTextNode(book.name));
 
-      var leader = document.createElement("span");
-      leader.className = "book__leader";
+      var leader = elem("span", "book__leader");
       leader.setAttribute("aria-hidden", "true");
-
-      var n = document.createElement("span");
-      n.className = "book__n stamp";
-      n.textContent = num(book.entries);
 
       btn.appendChild(name);
       btn.appendChild(leader);
-      btn.appendChild(n);
+      btn.appendChild(elem("span", "book__n stamp", num(book.entries.length)));
       li.appendChild(btn);
       el.books.appendChild(li);
     });
 
-    var filed = notebooks.reduce(function (n, b) { return n + b.entries; }, 0);
+    var filed = notebooks.reduce(function (n, b) { return n + b.entries.length; }, 0);
     el.booksNote.textContent = notebooks.length + " books · " + num(filed) + " entries";
-    el.floatN.textContent = num(floating.entries);
-    el.floatW.textContent = num(floating.words);
+    el.floatN.textContent = num(floating.entries.length);
+    el.floatW.textContent = num(countWords(floating));
+    renderCounts();
   }
 
-  /* --- the colophon, scoped to whatever is selected ----------------------- */
-
-  function countItem(label, value, dye, isScope) {
+  function countItem(label, value) {
     var wrap = document.createElement("div");
-    if (isScope) { wrap.className = "counts__scope"; }
-
-    var dt = document.createElement("dt");
-    if (dye) { dt.appendChild(dyeNode(dye)); }
-    dt.appendChild(document.createTextNode(label));
-
-    var dd = document.createElement("dd");
-    dd.textContent = value;
-
-    wrap.appendChild(dt);
-    wrap.appendChild(dd);
+    wrap.appendChild(elem("dt", null, label));
+    wrap.appendChild(elem("dd", null, value));
     return wrap;
   }
 
   function renderCounts() {
-    var book = bookById(selected);
-    el.counts.textContent = "";
+    var entries = 0, words = 0, oldest = 0;
+    containers().forEach(function (c) {
+      entries += c.entries.length;
+      words += countWords(c);
+      c.entries.forEach(function (e) {
+        var started = entryStarted(e);
+        if (started > oldest) { oldest = started; }
+      });
+    });
 
-    if (!book) {
-      var t = totals();
-      el.counts.appendChild(countItem("Notebooks", num(notebooks.length)));
-      el.counts.appendChild(countItem("Entries", num(t.entries)));
-      el.counts.appendChild(countItem("Words", num(t.words)));
-      el.counts.appendChild(countItem("Kept since", keptSince));
+    el.counts.textContent = "";
+    el.counts.appendChild(countItem("Notebooks", num(notebooks.length)));
+    el.counts.appendChild(countItem("Entries", num(entries)));
+    el.counts.appendChild(countItem("Words", num(words)));
+    el.counts.appendChild(countItem("Kept since", dateFor(oldest)
+      .toLocaleDateString(undefined, { month: "short", year: "numeric" })));
+  }
+
+  el.books.addEventListener("click", function (event) {
+    var btn = event.target.closest(".book__btn");
+    if (btn) { go("#/n/" + btn.dataset.id); }
+  });
+
+  el.floatBtn.addEventListener("click", function () { go("#/n/floating"); });
+
+  /* --- a notebook --------------------------------------------------------- */
+
+  function showBook(container) {
+    openBook = container;
+    setView("book");
+    moveComposer(el.slotBook, "book");
+
+    el.bookDye.className = "dye dye--" + container.dye;
+    el.bookName.textContent = container.name;
+    el.bookMeta.textContent =
+      num(container.entries.length) + " entries · " +
+      num(countWords(container)) + " words" +
+      (container.entries.length
+        ? " · last " + ago(Math.min.apply(null, container.entries.map(entryTouched)))
+        : "");
+
+    el.findBook.value = "";
+    renderBookEntries(container.entries.slice().sort(byRecency));
+    el.findBookN.textContent = "";
+  }
+
+  function entryRow(entry, container, snippetNode) {
+    var li = elem("li", "row");
+    var btn = elem("button", "row__btn");
+    btn.type = "button";
+    btn.dataset.folio = entry.folio;
+
+    var head = elem("div", "row__head");
+    head.appendChild(elem("span", "row__stamp stamp", stamp(entryTouched(entry))));
+    if (container && container !== openBook) {
+      var where = elem("span", "row__where stamp");
+      where.appendChild(dyeNode(container.dye));
+      where.appendChild(document.createTextNode(container.loose ? "floating" : container.name));
+      head.appendChild(where);
+    }
+    head.appendChild(elem("span", "row__folio stamp", entry.folio));
+
+    var body = elem("div", "row__body");
+    body.appendChild(elem("h3", "row__title", titleOf(entry)));
+
+    var snip = snippetNode;
+    if (!snip) {
+      var rest = snipFor(entry);
+      if (rest) { snip = elem("p", "row__snip", rest); }
+    }
+    if (snip) { body.appendChild(snip); }
+
+    var meta = elem("p", "row__meta stamp");
+    var bits = [sittings(entry.passages.length), entryWords(entry) + " w"];
+    if (entryClips(entry)) { bits.push(entryClips(entry) + " clipped"); }
+    meta.textContent = bits.join(" · ");
+    body.appendChild(meta);
+
+    btn.appendChild(head);
+    btn.appendChild(body);
+    li.appendChild(btn);
+    return li;
+  }
+
+  function renderBookEntries(entries) {
+    el.bookEntries.textContent = "";
+    entries.forEach(function (entry) {
+      el.bookEntries.appendChild(entryRow(entry, openBook));
+    });
+    el.bookEmpty.hidden = entries.length > 0;
+  }
+
+  el.bookEntries.addEventListener("click", function (event) {
+    var btn = event.target.closest(".row__btn");
+    if (btn) { go("#/e/" + btn.dataset.folio); }
+  });
+
+  /* --- an entry ----------------------------------------------------------- */
+
+  function showEntry(entry, container) {
+    openEntry = entry;
+    openBook = container;
+    setView("entry");
+
+    el.entryBack.href = "#/n/" + container.id;
+    el.entryBack.textContent = "";
+    el.entryBack.appendChild(elem("span", null, "←"));
+    el.entryBack.appendChild(document.createTextNode(" " + container.name));
+
+    el.entryFolio.textContent = "Entry " + entry.folio;
+    el.entryTitle.textContent = titleOf(entry);
+    el.entryMeta.textContent =
+      sittings(entry.passages.length) + " · " + num(entryWords(entry)) + " words · started " +
+      stamp(entryStarted(entry));
+
+    renderPassages();
+    moveComposer(el.slotEntry, "entry");
+    el.pickupDate.textContent = "Today · " + stamp(0);
+  }
+
+  function clipNode(clip) {
+    var li = elem("li", "clip clip--still");
+    li.appendChild(elem("span", "clip__mark", clip.mark));
+    var body = elem("div", "clip__body");
+    body.appendChild(elem("span", "clip__name", clip.name));
+    body.appendChild(elem("span", "clip__meta", clip.meta));
+    li.appendChild(body);
+    return li;
+  }
+
+  function renderPassages() {
+    el.entryPassages.textContent = "";
+
+    openEntry.passages.slice()
+      .sort(function (a, b) { return b.daysAgo - a.daysAgo; })
+      .forEach(function (passage) {
+        var li = elem("li", "passage");
+        li.appendChild(elem("p", "passage__stamp stamp", stamp(passage.daysAgo)));
+
+        var body = elem("div", "passage__body");
+        passage.text.split("\n").forEach(function (line) {
+          if (line.trim()) { body.appendChild(elem("p", "passage__text", line)); }
+        });
+
+        if (passage.clips.length) {
+          var list = elem("ul", "clips clips--still");
+          passage.clips.forEach(function (c) { list.appendChild(clipNode(c)); });
+          body.appendChild(list);
+        }
+
+        li.appendChild(body);
+        el.entryPassages.appendChild(li);
+      });
+  }
+
+  /* --- search ------------------------------------------------------------- */
+
+  function snippetFor(text, query) {
+    var flat = text.replace(/\s+/g, " ");
+    var at = flat.toLowerCase().indexOf(query);
+    var p = elem("p", "row__snip");
+
+    if (at < 0) { p.textContent = clamp(flat, 118); return p; }
+
+    var from = Math.max(0, at - 44);
+    var head = (from > 0 ? "…" : "") + flat.slice(from, at);
+    var tail = flat.slice(at + query.length, at + query.length + 74);
+
+    p.appendChild(document.createTextNode(head));
+    p.appendChild(elem("mark", null, flat.slice(at, at + query.length)));
+    p.appendChild(document.createTextNode(tail + (flat.length > at + query.length + 74 ? "…" : "")));
+    return p;
+  }
+
+  function matches(entry, query) {
+    var hit = null;
+    entry.passages.forEach(function (p) {
+      if (!hit && p.text.toLowerCase().indexOf(query) > -1) { hit = p.text; }
+      p.clips.forEach(function (c) {
+        if (!hit && (c.name + " " + c.meta).toLowerCase().indexOf(query) > -1) {
+          hit = c.name + " " + c.meta;
+        }
+      });
+    });
+    return hit;
+  }
+
+  /* one search, two scopes: pass a container to stay inside it */
+  function runSearch(input, counter, container) {
+    var query = input.value.trim().toLowerCase();
+    var scope = container ? [container] : containers();
+
+    if (query === "") {
+      counter.textContent = "";
+      if (container) {
+        renderBookEntries(container.entries.slice().sort(byRecency));
+      } else {
+        el.results.hidden = true;
+        el.results.textContent = "";
+        el.homeBody.hidden = false;
+      }
       return;
     }
 
-    el.counts.appendChild(countItem("Notebook", book.name, book.dye, true));
-    el.counts.appendChild(countItem("Entries", num(book.entries)));
-    el.counts.appendChild(countItem("Words", num(book.words)));
-    el.counts.appendChild(countItem("Last entry", sinceLast(book.lastDays)));
+    var found = [];
+    scope.forEach(function (c) {
+      c.entries.forEach(function (entry) {
+        var hit = matches(entry, query) ||
+          (titleOf(entry).toLowerCase().indexOf(query) > -1 ? titleOf(entry) : null);
+        if (hit) { found.push({ entry: entry, container: c, hit: hit }); }
+      });
+    });
+    found.sort(function (a, b) { return entryTouched(a.entry) - entryTouched(b.entry); });
 
-    var all = document.createElement("button");
-    all.type = "button";
-    all.className = "counts__all";
-    all.textContent = "All";
-    all.addEventListener("click", function () { select(""); });
-    el.counts.appendChild(all);
+    counter.textContent = found.length === 1 ? "1 entry" : found.length + " entries";
+
+    if (container) {
+      el.bookEntries.textContent = "";
+      found.forEach(function (f) {
+        el.bookEntries.appendChild(entryRow(f.entry, container, snippetFor(f.hit, query)));
+      });
+      el.bookEmpty.hidden = found.length > 0;
+      return;
+    }
+
+    el.homeBody.hidden = true;
+    el.results.hidden = false;
+    el.results.textContent = "";
+
+    var list = elem("ol", "entries");
+    found.forEach(function (f) {
+      list.appendChild(entryRow(f.entry, f.container, snippetFor(f.hit, query)));
+    });
+    if (!found.length) {
+      el.results.appendChild(elem("p", "empty", "Nothing matches that. It may not have been written down yet."));
+    }
+    el.results.appendChild(list);
   }
 
-  /* --- destination picker ------------------------------------------------ */
+  el.findAll.addEventListener("input", function () {
+    runSearch(el.findAll, el.findAllN, null);
+  });
+  el.findBook.addEventListener("input", function () {
+    runSearch(el.findBook, el.findBookN, openBook);
+  });
+
+  [el.findAll, el.findBook].forEach(function (input) {
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        input.value = "";
+        input.dispatchEvent(new Event("input"));
+        input.blur();
+      }
+    });
+  });
+
+  el.results.addEventListener("click", function (event) {
+    var btn = event.target.closest(".row__btn");
+    if (btn) { go("#/e/" + btn.dataset.folio); }
+  });
+
+  /* --- destination picker ------------------------------------------------- */
 
   function renderMenu() {
     el.destMenu.textContent = "";
 
-    function option(item, extraClass) {
-      var li = document.createElement("li");
-      li.className = "dest__opt" + (extraClass ? " " + extraClass : "");
+    function option(item, id, extra) {
+      var li = elem("li", "dest__opt" + (extra ? " " + extra : ""));
       li.setAttribute("role", "option");
       li.setAttribute("tabindex", "-1");
-      li.setAttribute("aria-selected", String(selected === item.id));
-      li.dataset.id = item.id;
+      li.setAttribute("aria-selected", String(selected === id));
+      li.dataset.id = id;
       li.appendChild(dyeNode(item.dye));
-      li.appendChild(document.createTextNode(item.name));
+      li.appendChild(document.createTextNode(item.loose ? "Floating thought" : item.name));
       return li;
     }
 
-    el.destMenu.appendChild(option(floating, "dest__opt--none"));
-
-    var sep = document.createElement("li");
-    sep.className = "dest__sep";
+    el.destMenu.appendChild(option(floating, "", "dest__opt--none"));
+    var sep = elem("li", "dest__sep");
     sep.setAttribute("role", "presentation");
     el.destMenu.appendChild(sep);
-
-    notebooks.forEach(function (b) { el.destMenu.appendChild(option(b)); });
+    notebooks.forEach(function (b) { el.destMenu.appendChild(option(b, b.id)); });
   }
 
   function menuOpen() { return el.destBtn.getAttribute("aria-expanded") === "true"; }
@@ -238,8 +594,7 @@
 
   function moveInMenu(from, step) {
     var opts = Array.prototype.slice.call(el.destMenu.querySelectorAll(".dest__opt"));
-    var i = opts.indexOf(from);
-    var next = opts[(i + step + opts.length) % opts.length];
+    var next = opts[(opts.indexOf(from) + step + opts.length) % opts.length];
     if (next) { next.focus(); }
   }
 
@@ -257,7 +612,8 @@
   el.destMenu.addEventListener("click", function (event) {
     var opt = event.target.closest(".dest__opt");
     if (!opt) { return; }
-    select(opt.dataset.id);
+    selected = opt.dataset.id;
+    renderSelection();
     closeMenu(true);
   });
 
@@ -269,118 +625,25 @@
     else if (event.key === "ArrowUp") { event.preventDefault(); moveInMenu(opt, -1); }
     else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      select(opt.dataset.id);
+      selected = opt.dataset.id;
+      renderSelection();
       closeMenu(true);
     } else if (event.key === "Escape" || event.key === "Tab") {
       closeMenu(true);
     }
   });
 
-  /* --- selection --------------------------------------------------------- */
-
-  function select(id) {
-    selected = id;
-    renderSelection();
-  }
-
   function renderSelection() {
-    var book = bookById(selected);
-    var item = book || floating;
-
-    el.destDye.className = "dye dye--" + item.dye;
-    el.destName.textContent = book ? book.name : "Floating thought";
-    el.destEcho.textContent = book ? book.name : "floating";
-
-    var buttons = el.books.querySelectorAll(".book__btn");
-    for (var i = 0; i < buttons.length; i += 1) {
-      buttons[i].setAttribute("aria-pressed", String(buttons[i].dataset.id === selected));
-    }
-    el.floatBtn.setAttribute("aria-pressed", String(!book));
-
-    renderCounts();
+    var book = containerById(selected);
+    el.destDye.className = "dye dye--" + book.dye;
+    el.destName.textContent = book.loose ? "Floating thought" : book.name;
+    el.destEcho.textContent = book.loose ? "floating" : book.name;
   }
-
-  el.books.addEventListener("click", function (event) {
-    var btn = event.target.closest(".book__btn");
-    if (btn) { select(btn.dataset.id); }
-  });
-
-  el.floatBtn.addEventListener("click", function () { select(""); });
-
-  /* --- compose mode ------------------------------------------------------ */
-
-  function measureThesis() {
-    if (composing) { return; }
-    document.documentElement.style.setProperty(
-      "--thesis-h", (el.thesis.scrollHeight + 2) + "px");
-  }
-
-  function grow() {
-    el.area.style.height = "auto";
-    el.area.style.height = el.area.scrollHeight + "px";
-  }
-
-  function setMode(on) {
-    if (composing === on) { return; }
-    composing = on;
-
-    if (on) {
-      measureThesis();
-      el.body.dataset.mode = "compose";
-    } else {
-      delete el.body.dataset.mode;
-    }
-
-    if (!el.hint.classList.contains("slate__hint--done")) {
-      el.hint.textContent = on ? HINT_WRITE : HINT_REST;
-    }
-    requestAnimationFrame(grow);
-  }
-
-  function say(message) {
-    window.clearTimeout(hintTimer);
-    el.hint.textContent = message;
-    el.hint.classList.add("slate__hint--done");
-    hintTimer = window.setTimeout(function () {
-      el.hint.classList.remove("slate__hint--done");
-      el.hint.textContent = composing ? HINT_WRITE : HINT_REST;
-    }, 7000);
-  }
-
-  el.area.addEventListener("focus", function () { setMode(true); });
-
-  el.area.addEventListener("input", function () {
-    updateCount();
-    grow();
-  });
-
-  el.area.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      el.form.requestSubmit();
-    } else if (event.key === "Escape") {
-      el.area.blur();
-      setMode(false);
-    }
-  });
-
-  /* Clicking off the writing area puts the room back up. */
-  document.addEventListener("mousedown", function (event) {
-    if (menuOpen() && !event.target.closest(".dest")) { closeMenu(false); }
-    if (composing && !event.target.closest(".open")) {
-      el.area.blur();
-      setMode(false);
-    }
-  });
 
   /* --- clipped resources --------------------------------------------------
 
-     A link or a file rides along with the entry. Paste a URL, paste a
-     screenshot, drop a file anywhere on the window, or use Attach. Nothing
-     here is uploaded — we hold the name, kind and size until storage lands. */
-
-  var clips = [];
-  var dragDepth = 0;
+     Paste a URL, paste a screenshot, drop a file anywhere, or use Attach.
+     Nothing is uploaded — name, kind and size are held until storage lands. */
 
   function isUrl(text) {
     return /^(https?:\/\/|www\.)\S+$/i.test(text.trim());
@@ -418,7 +681,7 @@
     renderClips();
     updateCount();
     if (!composing) { setMode(true); }
-    el.area.focus();
+    el.entry.focus();
     grow();
   }
 
@@ -443,15 +706,10 @@
 
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (file) {
-      var clip = {
-        mark: markFor(file),
-        name: file.name,
-        meta: formatSize(file.size),
-        thumb: null
-      };
+      var clip = { mark: markFor(file), name: file.name,
+                   meta: formatSize(file.size), thumb: null };
       clips.push(clip);
 
-      /* a picture is worth showing; everything else gets its mark */
       if (file.type.indexOf("image/") === 0 && file.size < 8 * 1024 * 1024) {
         var reader = new FileReader();
         reader.onload = function () { clip.thumb = reader.result; renderClips(); };
@@ -466,8 +724,7 @@
     el.clips.hidden = clips.length === 0;
 
     clips.forEach(function (clip, index) {
-      var li = document.createElement("li");
-      li.className = "clip";
+      var li = elem("li", "clip");
 
       if (clip.thumb) {
         var img = document.createElement("img");
@@ -476,63 +733,47 @@
         img.alt = "";
         li.appendChild(img);
       } else {
-        var mark = document.createElement("span");
-        mark.className = "clip__mark";
-        mark.textContent = clip.mark;
-        li.appendChild(mark);
+        li.appendChild(elem("span", "clip__mark", clip.mark));
       }
 
-      var body = document.createElement("div");
-      body.className = "clip__body";
-
-      var name = document.createElement("span");
-      name.className = "clip__name";
-      name.textContent = clip.name;
-
-      var meta = document.createElement("span");
-      meta.className = "clip__meta";
-      meta.textContent = clip.meta;
-
-      body.appendChild(name);
-      body.appendChild(meta);
+      var body = elem("div", "clip__body");
+      body.appendChild(elem("span", "clip__name", clip.name));
+      body.appendChild(elem("span", "clip__meta", clip.meta));
       li.appendChild(body);
 
-      var drop = document.createElement("button");
-      drop.type = "button";
-      drop.className = "clip__x";
-      drop.textContent = "\u00d7";
-      drop.setAttribute("aria-label", "Remove " + clip.name);
-      drop.addEventListener("click", function () {
+      var remove = elem("button", "clip__x", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", "Remove " + clip.name);
+      remove.addEventListener("click", function () {
         clips.splice(index, 1);
         renderClips();
         updateCount();
         grow();
-        el.area.focus();
+        el.entry.focus();
       });
-      li.appendChild(drop);
+      li.appendChild(remove);
 
       el.clips.appendChild(li);
     });
   }
 
   function updateCount() {
-    var label = wordsIn(el.area.value) + " w";
+    var label = wordsIn(el.entry.value) + " w";
     if (clips.length) { label += " · " + clipCount(); }
     el.count.textContent = label;
   }
 
-  /* paste a link, or a screenshot, straight into the entry */
-  el.area.addEventListener("paste", function (event) {
-    var data = event.clipboardData;
-    if (!data) { return; }
+  el.entry.addEventListener("paste", function (event) {
+    var payload = event.clipboardData;
+    if (!payload) { return; }
 
-    if (data.files && data.files.length) {
+    if (payload.files && payload.files.length) {
       event.preventDefault();
-      addFiles(data.files);
+      addFiles(payload.files);
       return;
     }
 
-    var text = data.getData("text");
+    var text = payload.getData("text");
     if (text && isUrl(text)) {
       event.preventDefault();
       addLink(text);
@@ -546,7 +787,6 @@
     el.fileInput.value = "";
   });
 
-  /* drop anywhere on the window */
   function draggingFiles(event) {
     var types = event.dataTransfer && event.dataTransfer.types;
     return !!types && Array.prototype.indexOf.call(types, "Files") > -1;
@@ -576,51 +816,147 @@
     addFiles(event.dataTransfer.files);
   });
 
-  /* --- filing an entry --------------------------------------------------- */
+  /* --- compose mode ------------------------------------------------------- */
 
-  el.form.addEventListener("submit", function (event) {
+  function measureThesis() {
+    if (composing) { return; }
+    document.documentElement.style.setProperty(
+      "--thesis-h", (el.thesis.scrollHeight + 2) + "px");
+  }
+
+  function grow() {
+    el.entry.style.height = "auto";
+    el.entry.style.height = el.entry.scrollHeight + "px";
+  }
+
+  function setMode(on) {
+    if (composing === on) { return; }
+    composing = on;
+
+    if (on) {
+      measureThesis();
+      el.body.dataset.mode = "compose";
+    } else {
+      delete el.body.dataset.mode;
+    }
+
+    if (!el.hint.classList.contains("slate__hint--done")) {
+      el.hint.textContent = restingHint();
+    }
+    requestAnimationFrame(grow);
+  }
+
+  function say(message, folio) {
+    window.clearTimeout(hintTimer);
+    el.hint.textContent = message;
+    el.hint.classList.add("slate__hint--done");
+
+    if (folio) {
+      var link = document.createElement("a");
+      link.className = "hint__open";
+      link.href = "#/e/" + folio;
+      link.textContent = "Open";
+      el.hint.appendChild(document.createTextNode(" "));
+      el.hint.appendChild(link);
+    }
+
+    hintTimer = window.setTimeout(function () {
+      el.hint.classList.remove("slate__hint--done");
+      el.hint.textContent = restingHint();
+    }, 9000);
+  }
+
+  el.entry.addEventListener("focus", function () { setMode(true); });
+
+  el.entry.addEventListener("input", function () {
+    updateCount();
+    grow();
+  });
+
+  el.entry.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      el.entryForm.requestSubmit();
+    } else if (event.key === "Escape") {
+      el.entry.blur();
+      setMode(false);
+    }
+  });
+
+  document.addEventListener("mousedown", function (event) {
+    if (menuOpen() && !event.target.closest(".dest")) { closeMenu(false); }
+    if (composing && !event.target.closest(".composer") &&
+        !event.target.closest(".pickup")) {
+      el.entry.blur();
+      setMode(false);
+    }
+  });
+
+  /* --- writing it down ---------------------------------------------------- */
+
+  el.entryForm.addEventListener("submit", function (event) {
     event.preventDefault();
 
-    var text = el.area.value.trim();
+    var text = el.entry.value.trim();
 
-    /* typed a bare URL and nothing else? that's a resource, not a sentence */
     if (isUrl(text)) {
-      el.area.value = "";
+      el.entry.value = "";
       addLink(text);
       text = "";
     }
-
-    if (text === "" && clips.length === 0) { el.area.focus(); return; }
+    if (text === "" && clips.length === 0) { el.entry.focus(); return; }
 
     var words = wordsIn(text);
     var clipped = clips.length ? " · " + clipCount() : "";
-    var book = bookById(selected);
-    var folio = folioLabel(nextFolio);
-    var target = book || floating;
+    var passage = {
+      daysAgo: 0,
+      text: text || clips[0].name,
+      clips: clips.map(function (c) {
+        return { mark: c.mark, name: c.name, meta: c.meta };
+      })
+    };
 
-    target.entries += 1;
-    target.words += words;
-    target.lastDays = 0;
-
-    nextFolio += 1;
-    el.folio.textContent = folioLabel(nextFolio);
-    el.area.value = "";
     clips = [];
+    el.entry.value = "";
     renderClips();
     updateCount();
     grow();
 
-    renderBooks();
-    renderSelection();
+    if (context === "entry") {
+      openEntry.passages.push(passage);
+      renderPassages();
+      el.entryMeta.textContent =
+        sittings(openEntry.passages.length) + " · " + num(entryWords(openEntry)) +
+        " words · started " + stamp(entryStarted(openEntry));
+      say("Added to " + openEntry.folio + " · " + words + " w" + clipped);
+      el.entry.focus();
+      return;
+    }
 
-    say(book
-      ? folio + " → " + book.name + " · " + words + " w" + clipped
-      : folio + " left floating · " + words + " w" + clipped);
+    var container = context === "book" ? openBook : containerById(selected);
+    var entry = { folio: nextFolio(), passages: [passage] };
+    container.entries.push(entry);
 
-    el.area.focus();
+    if (context === "book") {
+      renderBookEntries(container.entries.slice().sort(byRecency));
+      el.bookMeta.textContent =
+        num(container.entries.length) + " entries · " +
+        num(countWords(container)) + " words · last today";
+      say(entry.folio + " started in " + container.name + " · " + words + " w" + clipped,
+        entry.folio);
+    } else {
+      renderBooks();
+      el.nextFolio.textContent = nextFolio();
+      say(container.loose
+        ? entry.folio + " left floating · " + words + " w" + clipped
+        : entry.folio + " → " + container.name + " · " + words + " w" + clipped,
+        entry.folio);
+    }
+
+    el.entry.focus();
   });
 
-  /* --- a new notebook ---------------------------------------------------- */
+  /* --- a new notebook ----------------------------------------------------- */
 
   function closeNewBook(form) {
     form.replaceWith(el.bookNew);
@@ -637,10 +973,8 @@
     input.placeholder = "Name it…";
     input.setAttribute("aria-label", "Name the new notebook");
 
-    var add = document.createElement("button");
+    var add = elem("button", "book-new__add stamp", "Add");
     add.type = "submit";
-    add.className = "book-new__add stamp";
-    add.textContent = "Add";
 
     form.appendChild(input);
     form.appendChild(add);
@@ -653,13 +987,12 @@
       if (name === "") { closeNewBook(form); return; }
 
       var id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-      notebooks.push({
-        id: id, name: name, dye: dyes[notebooks.length % dyes.length],
-        entries: 0, words: 0, lastDays: 0
-      });
+      notebooks.push({ id: id, name: name,
+                       dye: dyes[notebooks.length % dyes.length], entries: [] });
+      selected = id;
       closeNewBook(form);
       renderBooks();
-      select(id);
+      renderSelection();
       say(name + " started · new entries land there");
     });
 
@@ -668,7 +1001,7 @@
     });
   });
 
-  /* --- dateline ---------------------------------------------------------- */
+  /* --- dateline ----------------------------------------------------------- */
 
   var narrow = window.matchMedia("(max-width: 34em)");
 
@@ -687,14 +1020,20 @@
       " · " + time;
   }
 
-  /* --- keyboard ---------------------------------------------------------- */
+  /* --- keyboard ----------------------------------------------------------- */
 
   document.addEventListener("keydown", function (event) {
     var typing = event.target.matches("input, textarea, [contenteditable]");
+    if (typing || event.metaKey || event.ctrlKey || event.altKey) { return; }
 
-    if (event.key === "n" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    if (event.key === "n") {
       event.preventDefault();
-      el.area.focus();
+      el.entry.focus();
+    } else if (event.key === "/") {
+      var box = view === "book" ? el.findBook : el.findAll;
+      if (view !== "entry") { event.preventDefault(); box.focus(); }
+    } else if (event.key === "Escape" && view !== "home") {
+      go(view === "entry" ? "#/n/" + openBook.id : "#/");
     }
   });
 
@@ -703,17 +1042,17 @@
     grow();
   });
 
-  /* --- go ---------------------------------------------------------------- */
+  window.addEventListener("hashchange", route);
 
-  el.hint.textContent = HINT_REST;
+  /* --- go ----------------------------------------------------------------- */
+
   writeDateline();
   setInterval(writeDateline, 30000);
   narrow.addEventListener("change", writeDateline);
 
-  renderBooks();
-  renderSelection();
   renderClips();
   updateCount();
+  route();
   grow();
 
   if (document.fonts && document.fonts.ready) {

@@ -5,17 +5,25 @@ of thought it is.
 
 ## Where this is
 
-The home screen only — static HTML, CSS and a little vanilla JavaScript, no
-build step and no dependencies. The figures on the page are samples for setting
+Three screens — static HTML, CSS and a little vanilla JavaScript, no build step
+and no dependencies. The figures on the page are samples for setting
 the look; nothing is stored yet.
 
-The screen has two states.
+## How it works
 
-**At rest** it's an index: notebooks with their entry counts, and a separate
-panel for **floating thoughts** — entries that never got filed. They're kept, and
-counted, but they're deliberately not a notebook. Picking a notebook sets where
-the next entry lands and scopes the figures at the bottom to that notebook:
-entries, words, last entry.
+An **entry** is a thread, not a note. It opens with a line and accumulates dated
+**sittings** — every time you come back to it, what you write is stamped with
+that day and added to the same thread. An entry lives in a notebook, or it
+floats.
+
+**Home** is the index: notebooks with their entry counts, a panel for floating
+thoughts, and a search across everything. **A notebook** lists its entries,
+newest touched first, with its own scoped search. **An entry** shows its
+sittings in order, oldest at the top, with today's waiting at the bottom.
+
+One composer serves all three, moving to whichever view is asking. On home it
+starts an entry and you pick where it goes. In a notebook it starts one already
+filed there. Inside an entry it picks the thread back up, dated today.
 
 **Composing** starts the moment you click into the writing area. The room dims,
 a lamp comes up, the headline steps aside, and what you type takes its place at
@@ -43,7 +51,8 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | --- | --- |
 | `index.html` | Page structure and the sample entries |
 | `styles.css` | Design tokens and every rule on the page |
-| `app.js` | Notebook data, the index, compose mode, filing an entry |
+| `data.js` | Sample notebooks, entries and sittings — what storage replaces |
+| `app.js` | Views, routing, search, compose mode, clips |
 
 ## The look
 
@@ -60,7 +69,8 @@ change them there and the page follows.
 | `n` | Start an entry |
 | `Enter` | File it |
 | `Shift` + `Enter` | New line |
-| `Esc` | Step back out |
+| `/` | Search — the whole notebook, or just this one |
+| `Esc` | Step back out, or up a level |
 | paste a link | Clip it to the entry |
 | drop a file | Clip it to the entry |
 
@@ -68,6 +78,9 @@ change them there and the page follows.
 
 Storage, then entry pages, then search. Nothing is decided yet.
 
-Notebooks live in a single `notebooks` array at the top of `app.js`, with
-unfiled entries in `floating` beside it. Everything on the page renders from
-those two, which is where persistence will hook in.
+Everything renders from `window.NOTEBOOK_DATA` in `data.js`, and every figure on
+the page is derived from it — entry counts, word counts, dates, "kept since".
+Nothing is hardcoded, so persistence hooks in by replacing that one object.
+
+Dates are stored as day offsets from today so the sample stays plausible
+whenever it's opened. Real storage will want real timestamps.
