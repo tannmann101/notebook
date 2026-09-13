@@ -706,6 +706,14 @@ mark {
 
 .row + .row { border-top: 1px solid var(--lead); }
 
+/* the one just written, so it's findable at the foot of the list */
+.row--fresh { animation: row-settle 2.4s ease-out both; }
+@keyframes row-settle {
+  0%   { background: rgba(196,147,63,0.16); }
+  100% { background: rgba(196,147,63,0); }
+}
+@media (prefers-reduced-motion: reduce) { .row--fresh { animation: none; } }
+
 .row__btn {
   display: block;
   width: 100%;

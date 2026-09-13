@@ -53,9 +53,14 @@ If the clipboard can't be reached — some embeds block it — the report opens 
 panel with the text selected, ready to copy by hand.
 
 **Home** is the index: notebooks with their entry counts, and a panel for
-floating thoughts. **A notebook** lists its entries, newest touched first.
-**An entry** shows its sittings in order, oldest at the top, with today's
-waiting at the bottom.
+floating thoughts. **A notebook** reads the way it was written — oldest at the
+top, newest at the foot, in step with the numbering. **An entry** shows its
+sittings the same way, with today's waiting at the bottom.
+
+An entry keeps the place where it was started; coming back to it later adds a
+sitting without moving it up the page, the way a page in a real notebook stays
+where it is. Search results are the exception — those come back newest first,
+because that's what you're usually after when you go looking.
 
 **Search** lives in the rail and is the same field everywhere. Type and results
 take over the page; clear it and you're back where you were. Start typing while

@@ -155,7 +155,12 @@
   }
 
   /* most recently touched first */
-  function byRecency(a, b) { return entryTouched(b) - entryTouched(a); }
+  /* A notebook reads the way it was written — oldest at the top, the newest
+     at the bottom, the way the numbering runs. An entry keeps the place where
+     it was started; picking it up again later doesn't move it. */
+  function byStarted(a, b) {
+    return (entryStarted(a) - entryStarted(b)) || (a.n - b.n);
+  }
 
   function sittings(n) { return n + (n === 1 ? " sitting" : " sittings"); }
 
@@ -414,7 +419,7 @@
     el.archiveBook.hidden = container.loose;
     el.archiveBook.querySelector(".copy__label").textContent =
       container.archived ? "Restore" : "Archive";
-    renderBookEntries(container.entries.slice().sort(byRecency));
+    renderBookEntries(container.entries.slice().sort(byStarted));
   }
 
   function entryRow(entry, container, snippetNode) {
@@ -454,12 +459,19 @@
     return li;
   }
 
-  function renderBookEntries(entries) {
+  function renderBookEntries(entries, freshN) {
     el.bookEntries.textContent = "";
+
+    var fresh = null;
     entries.forEach(function (entry) {
-      el.bookEntries.appendChild(entryRow(entry, openBook));
+      var row = entryRow(entry, openBook);
+      if (freshN && entry.n === freshN) { row.classList.add("row--fresh"); fresh = row; }
+      el.bookEntries.appendChild(row);
     });
     el.bookEmpty.hidden = entries.length > 0;
+
+    /* the newest is at the bottom now, so show where it landed */
+    if (fresh) { fresh.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
   }
 
   el.bookEntries.addEventListener("click", function (event) {
@@ -1127,7 +1139,7 @@
     save(entry, container);
 
     if (context === "book") {
-      renderBookEntries(container.entries.slice().sort(byRecency));
+      renderBookEntries(container.entries.slice().sort(byStarted), entry.n);
       say(entryLabel(entry) + " started in " + container.name + counted + clipped, entry.n);
     } else {
       renderBooks();
@@ -1169,7 +1181,7 @@
   }
 
   function reportContainer(container, nested) {
-    var entries = container.entries.slice().sort(byRecency);
+    var entries = container.entries.slice().sort(byStarted);
     var count = entries.length + (entries.length === 1 ? " entry" : " entries");
 
     var out = [container.name.toUpperCase(),
