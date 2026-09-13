@@ -110,7 +110,9 @@
     return (first.text.split("\n")[0] || "").trim();
   }
 
-  function titleOf(entry) { return clamp(openingLine(entry), 64); }
+  /* the row shows as much of the opening line as it has room for; the CSS
+     decides where it runs out, not a character count */
+  function titleOf(entry) { return openingLine(entry); }
 
   function entryNo(entry) { return String(entry.n).padStart(4, "0"); }
   function entryLabel(entry) { return "Entry " + entryNo(entry); }

@@ -25,6 +25,7 @@
 <div class="drop" aria-hidden="true"><div class="drop__frame"><p class="drop__text">Drop to clip it to this entry</p></div></div>
 
 <header class="rail recede">
+ <div class="rail__inner">
   <a class="mark" href="#/">
     <span class="mark__rule" aria-hidden="true"></span>
     <span class="mark__word">Notebook</span>
@@ -45,6 +46,7 @@
     <span class="stamp" id="dateline">&nbsp;</span>
     <kbd class="key" title="Press n to start an entry">n</kbd>
   </div>
+ </div>
 </header>
 
 <main class="page">
@@ -64,7 +66,7 @@
       <div class="composer-slot" id="slot-home"></div>
     </section>
 
-    <div class="home-body recede" id="home-body">
+    <aside class="side home-body recede" id="home-body">
       <section class="books-wrap" aria-labelledby="books-h">
         <div class="section-head">
           <h2 class="section-head__title" id="books-h">Notebooks</h2>
@@ -87,16 +89,17 @@
         </button>
         <p class="floaters__note">Thoughts that never got put away. They keep just fine here.</p>
       </section>
-    </div>
+    </aside>
   </section>
 
   <!-- ========================== a notebook ========================== -->
   <section class="view" id="view-book" hidden>
-    <div class="crumb recede">
+    <aside class="side recede">
+    <div class="crumb">
       <a class="crumb__back" href="#/"><span aria-hidden="true">&larr;</span> Notebooks</a>
     </div>
 
-    <header class="book-head recede">
+    <header class="book-head">
       <span class="dye" id="book-dye" aria-hidden="true"></span>
       <h1 class="book-head__name" id="book-name">&nbsp;</h1>
       <button class="copy" type="button" id="copy-book">
@@ -108,20 +111,23 @@
         <span class="copy__label">Copy notebook</span>
       </button>
     </header>
+    </aside>
 
-    <div class="composer-slot" id="slot-book"></div>
-
-    <ol class="entries recede" id="book-entries"></ol>
-    <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
+    <div class="main">
+      <div class="composer-slot" id="slot-book"></div>
+      <ol class="entries recede" id="book-entries"></ol>
+      <p class="empty recede" id="book-empty" hidden>Nothing here yet. The line above starts it.</p>
+    </div>
   </section>
 
   <!-- =========================== an entry =========================== -->
   <section class="view" id="view-entry" hidden>
-    <div class="crumb recede">
+    <aside class="side recede">
+    <div class="crumb">
       <a class="crumb__back" href="#/" id="entry-back"><span aria-hidden="true">&larr;</span> Back</a>
     </div>
 
-    <header class="entry-head recede">
+    <header class="entry-head">
       <div class="head-row">
         <h1 class="entry-head__title" id="entry-title">&nbsp;</h1>
         <button class="copy" type="button" id="copy-entry">
@@ -135,12 +141,15 @@
       </div>
       <p class="entry-head__meta stamp" id="entry-meta">&nbsp;</p>
     </header>
+    </aside>
 
-    <ol class="passages recede" id="entry-passages"></ol>
+    <div class="main">
+      <ol class="passages recede" id="entry-passages"></ol>
 
-    <div class="pickup">
-      <p class="pickup__date stamp" id="pickup-date">&nbsp;</p>
-      <div class="composer-slot" id="slot-entry"></div>
+      <div class="pickup">
+        <p class="pickup__date stamp" id="pickup-date">&nbsp;</p>
+        <div class="composer-slot" id="slot-entry"></div>
+      </div>
     </div>
   </section>
 

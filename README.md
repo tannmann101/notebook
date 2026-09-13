@@ -122,6 +122,13 @@ Archivo set tight and slightly condensed does the talking; Spline Sans Mono
 handles anything that counts. The tokens all live at the top of `styles.css`;
 change them there and the page follows.
 
+Past about 1090px the page becomes two columns: the work runs down the main
+column while an aside holds where you are and what you can do — the notebook
+index on the home screen, the notebook's name and Copy inside one, the entry's
+number and Copy inside that. The aside sticks while the main column scrolls.
+Below that width it stacks back to a single column, aside first, which is the
+order a phone wants anyway.
+
 ## Keys
 
 | | |

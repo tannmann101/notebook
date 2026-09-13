@@ -41,7 +41,9 @@
   --mono: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Scale */
-  --measure: 70ch;
+  --measure: 70ch;          /* the single column, up to tablet width */
+  --span: 76rem;            /* the two-column desktop composition */
+  --aside: 19rem;
   --gutter: clamp(1.25rem, 5vw, 3rem);
   --dim: 0.13;  /* how far the room goes down in compose */
 }
@@ -167,12 +169,17 @@ body[data-mode="compose"] .recede {
 
 .rail {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
   padding-block: 1.1rem;
   padding-inline: var(--gutter);
   border-bottom: 1px solid var(--lead);
+}
+.rail__inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: calc(var(--measure) - 2 * var(--gutter));
+  margin-inline: auto;
 }
 
 .mark { display: inline-flex; align-items: center; gap: 0.6rem; text-decoration: none; }
@@ -529,7 +536,8 @@ body[data-drop="on"] .lamp { opacity: 1; }
 
 .empty { margin: 1.5rem 0 0; color: var(--ash-dim); font-style: italic; }
 
-.crumb { margin-bottom: -1rem; }
+.side { display: flex; flex-direction: column; gap: 1.4rem; }
+.home-body { gap: clamp(2.5rem, 5.5vw, 3.5rem); }
 .crumb__back {
   display: inline-flex;
   align-items: center;
@@ -684,6 +692,11 @@ mark {
   letter-spacing: -0.015em;
   line-height: 1.25;
   color: var(--bone);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 .row__snip { margin: 0; font-size: 0.92rem; line-height: 1.55; color: var(--ash); }
 .row__meta { margin: 0.4rem 0 0; color: var(--ash-dim); }
@@ -1048,6 +1061,60 @@ mark {
   cursor: pointer;
 }
 .report__close:hover { color: var(--brass); border-color: var(--brass-dim); }
+
+
+/* --- desktop: two columns ------------------------------------------------
+
+   The work runs down the main column; where you are and what you can do sit
+   in an aside that stays put while the main column scrolls. Same shape in all
+   three views, so the page never rearranges itself under you. */
+
+@media (min-width: 68em) {
+  .rail__inner { max-width: calc(var(--span) - 2 * var(--gutter)); }
+  .page, .colophon { max-width: var(--span); }
+
+  .view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--aside);
+    column-gap: clamp(2.5rem, 4.5vw, 5rem);
+    align-items: start;
+  }
+
+  .view > .side {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+  }
+
+  .view > .open,
+  .view > .main {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  /* the aside is a column now, so its head stacks rather than spreading */
+  .book-head { flex-direction: column; align-items: flex-start; gap: 0.85rem; }
+  .book-head .dye { width: 100%; height: 3px; }
+  .book-head .copy { margin-left: 0; }
+  .entry-head { align-items: flex-start; gap: 0.75rem; }
+  .head-row { display: contents; }
+  .entry-head__title { order: 1; }
+  .entry-head__meta { order: 2; }
+  .entry-head .copy { order: 3; margin-top: 0.2rem; }
+
+  /* long-form reading keeps its own measure inside a wider column */
+  .passage__text, .floaters__note, .slate__hint { max-width: 62ch; }
+
+  /* results stay scannable rather than stretching the full span */
+  .results { max-width: 54rem; }
+}
 
 /* --- narrow ------------------------------------------------------------ */
 
