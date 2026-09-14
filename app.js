@@ -539,8 +539,8 @@
     }
 
     var body = elem("div", "clip__body");
-    body.appendChild(elem("span", "clip__name", clip.name));
-    body.appendChild(elem("span", "clip__meta", clip.meta));
+    body.appendChild(elem("span", "clip__name", clip.title || clip.name));
+    body.appendChild(elem("span", "clip__meta", clip.title ? clip.name : clip.meta));
     li.appendChild(body);
     return li;
   }
@@ -589,6 +589,7 @@
 
       var about = describeLink(href);
       extra.push({ mark: "LINK", name: about.name, meta: about.meta, href: href,
+                   title: titleCache[href] || null,
                    thumb: posterCache[poster] || null });
     });
 
@@ -1042,6 +1043,55 @@
     });
   }
 
+  /* The name of the thing, rather than its address.
+
+     The pixels are out of reach — the host won't let a page from somewhere else
+     read them — but the title is a different question with a different answer.
+     YouTube's oEmbed endpoint will answer to a named callback, handing back a
+     small script instead of data, and a script is the one shape a browser
+     accepts from another origin without asking permission. Nothing is executed
+     beyond reading one string out of it, and if the call doesn't come back the
+     link keeps reading as its address. */
+  var titleCache = Object.create(null);
+  var titleSeq = 0;
+
+  function titleFor(href, done) {
+    if (!posterFor(href)) { done(null); return; }   /* only the ones we can ask about */
+
+    if (Object.prototype.hasOwnProperty.call(titleCache, href)) {
+      done(titleCache[href]);
+      return;
+    }
+    titleCache[href] = null;
+
+    var endpoint = "https://www.youtube.com/oembed?format=json&url=" +
+                   encodeURIComponent(href) + "&callback=";
+    var name = "__notebookTitle" + (titleSeq += 1);
+    var tag = document.createElement("script");
+    var timer = null;
+
+    function finish(title) {
+      if (!tag) { return; }
+      window.clearTimeout(timer);
+      try { delete window[name]; } catch (err) { window[name] = undefined; }
+      if (tag.parentNode) { tag.parentNode.removeChild(tag); }
+      tag = null;
+
+      title = typeof title === "string" ? title.trim() : "";
+      if (title) { titleCache[href] = title; }
+      done(title || null);
+    }
+
+    window[name] = function (data) {
+      finish(data && typeof data.title === "string" ? data.title : "");
+    };
+
+    tag.onerror = function () { finish(""); };
+    tag.src = endpoint + name;
+    timer = window.setTimeout(function () { finish(""); }, 8000);
+    document.head.appendChild(tag);
+  }
+
   /* Links clipped before the poster existed, and any whose fetch was still in
      flight when the entry was written, get filled in when you open the entry. */
   function warmPosters(entry, container) {
@@ -1059,20 +1109,44 @@
       });
     });
 
-    loose.forEach(function (href) { posterBytes(href, function () {}); });
-    if (!pending.length) { return; }
+    loose.forEach(function (href) {
+      posterBytes(href, function () {});
+      titleFor(href, function (title) {
+        if (title && openEntry === entry) { renderPassages(); }
+      });
+    });
 
-    var left = pending.length;
+    var missing = [];
+    entry.passages.forEach(function (passage) {
+      (passage.clips || []).forEach(function (clip) {
+        if (!clip.title && clip.href && posterFor(clip.href)) { missing.push(clip); }
+      });
+    });
+
+    var left = pending.length + missing.length;
     var got = false;
+
+    function tick() {
+      left -= 1;
+      if (left === 0 && got) {
+        save(entry, container);
+        if (openEntry === entry) { renderPassages(); }
+      }
+    }
+
+    if (!left) { return; }
 
     pending.forEach(function (clip) {
       posterBytes(clip.href, function (data) {
         if (data) { clip.thumb = data; got = true; }
-        left -= 1;
-        if (left === 0 && got) {
-          save(entry, container);
-          if (openEntry === entry) { renderPassages(); }
-        }
+        tick();
+      });
+    });
+
+    missing.forEach(function (clip) {
+      titleFor(clip.href, function (title) {
+        if (title) { clip.title = title; got = true; }
+        tick();
       });
     });
   }
@@ -1100,6 +1174,12 @@
       /* the clip object outlives the draft — it's the same one the passage
          keeps — so fill it in either way and only redraw if it's still here */
       clip.thumb = data;
+      if (clips.indexOf(clip) !== -1) { renderClips(); }
+    });
+
+    titleFor(href, function (title) {
+      if (!title) { return; }
+      clip.title = title;
       if (clips.indexOf(clip) !== -1) { renderClips(); }
     });
 
@@ -1430,8 +1510,9 @@
   /* --- rendering a report ------------------------------------------------- */
 
   function clipText(c) {
-    /* a bare URL on its own line, so anything that auto-links finds it */
-    if (c.href) { return c.href; }
+    /* the address stays on a line of its own, so anything that auto-links
+       finds it whole */
+    if (c.href) { return c.title ? c.title + "\n" + c.href : c.href; }
     return "[" + c.mark + "] " + c.name + (c.meta ? " · " + c.meta : "");
   }
 
@@ -1529,7 +1610,8 @@
       var c = b.clip;
       if (c.href) {
         var href = escapeHtml(c.href);
-        var label = escapeHtml(c.name + (c.meta && c.meta !== "link" ? c.meta : ""));
+        var label = escapeHtml(c.title ||
+                                (c.name + (c.meta && c.meta !== "link" ? c.meta : "")));
         /* The remote address, deliberately, not the bytes we hold. Tested on a
            phone: pasted into Mail and Messages the address gets fetched and the
            poster appears, while the same picture as an inline data: URI is
