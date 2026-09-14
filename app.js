@@ -1065,31 +1065,56 @@
     titleCache[href] = null;
 
     var endpoint = "https://www.youtube.com/oembed?format=json&url=" +
-                   encodeURIComponent(href) + "&callback=";
-    var name = "__notebookTitle" + (titleSeq += 1);
-    var tag = document.createElement("script");
-    var timer = null;
+                   encodeURIComponent(href);
 
-    function finish(title) {
-      if (!tag) { return; }
-      window.clearTimeout(timer);
-      try { delete window[name]; } catch (err) { window[name] = undefined; }
-      if (tag.parentNode) { tag.parentNode.removeChild(tag); }
-      tag = null;
-
-      title = typeof title === "string" ? title.trim() : "";
+    function keep(title) {
+      title = title && typeof title === "string" ? title.trim() : "";
       if (title) { titleCache[href] = title; }
       done(title || null);
     }
 
-    window[name] = function (data) {
-      finish(data && typeof data.title === "string" ? data.title : "");
-    };
+    /* Straight read first: if the endpoint shares across origins this is the
+       whole story, and nothing from another site ever runs here. */
+    if (window.fetch) {
+      fetch(endpoint, { mode: "cors", credentials: "omit" }).then(function (res) {
+        if (!res.ok) { throw new Error("oembed " + res.status); }
+        return res.json();
+      }).then(function (data) {
+        keep(data && data.title);
+      }).catch(function () {
+        viaCallback();
+      });
+      return;
+    }
 
-    tag.onerror = function () { finish(""); };
-    tag.src = endpoint + name;
-    timer = window.setTimeout(function () { finish(""); }, 8000);
-    document.head.appendChild(tag);
+    viaCallback();
+
+    /* Otherwise ask it to answer to a name. A script is the one shape a browser
+       takes from another origin without permission; one string is read out of
+       it and the tag is pulled straight back out of the page. */
+    function viaCallback() {
+      var name = "__notebookTitle" + (titleSeq += 1);
+      var tag = document.createElement("script");
+      var timer = null;
+
+      function finish(title) {
+        if (!tag) { return; }
+        window.clearTimeout(timer);
+        try { delete window[name]; } catch (err) { window[name] = undefined; }
+        if (tag.parentNode) { tag.parentNode.removeChild(tag); }
+        tag = null;
+        keep(title);
+      }
+
+      window[name] = function (data) {
+        finish(data && typeof data.title === "string" ? data.title : "");
+      };
+
+      tag.onerror = function () { finish(""); };
+      tag.src = endpoint + "&callback=" + name;
+      timer = window.setTimeout(function () { finish(""); }, 8000);
+      document.head.appendChild(tag);
+    }
   }
 
   /* Links clipped before the poster existed, and any whose fetch was still in

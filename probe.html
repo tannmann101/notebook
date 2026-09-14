@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook · what this device allows</title>
+<style>
+  :root {
+    --soot: #131210; --panel: #1b1815; --lead: #2b2723; --lead-hi: #3d372e;
+    --bone: #f2ede3; --ash: #a49c8e; --ash-dim: #837b70;
+    --brass: #c4933f; --good: #7fa86b; --bad: #c87050;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1.5rem 1.1rem 4rem;
+    background: var(--soot); color: var(--bone);
+    font: 400 16px/1.55 "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 34rem; margin-inline: auto; }
+  h1 { margin: 0 0 0.2rem; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { margin: 0 0 1.6rem; color: var(--ash-dim); font-size: 0.88rem; }
+  .check {
+    border: 1px solid var(--lead); border-radius: 4px; background: var(--panel);
+    padding: 0.85rem 0.95rem; margin-bottom: 0.7rem;
+  }
+  .name { font-size: 0.95rem; margin: 0 0 0.35rem; }
+  .verdict { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.04em; }
+  .waiting { color: var(--ash-dim); }
+  .pass { color: var(--good); }
+  .fail { color: var(--bad); }
+  .why { margin: 0.3rem 0 0; font-family: var(--mono); font-size: 0.72rem;
+         color: var(--ash-dim); overflow-wrap: anywhere; }
+  .note { margin: 0.25rem 0 0; font-size: 0.82rem; color: var(--ash); }
+  button {
+    -webkit-appearance: none; appearance: none; cursor: pointer;
+    font: 500 0.82rem/1 var(--mono); letter-spacing: 0.06em;
+    color: var(--brass); background: transparent;
+    border: 1px solid var(--brass); border-radius: 3px;
+    padding: 0.7rem 0.95rem; margin-top: 0.6rem;
+  }
+  .rule { height: 1px; background: var(--lead); margin: 1.8rem 0 1.4rem; border: 0; }
+  .foot { font-size: 0.82rem; color: var(--ash-dim); }
+  code { font-family: var(--mono); font-size: 0.78rem; color: var(--ash); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What this device allows</h1>
+  <p class="sub">Four questions the notebook can't answer from a desk. Open this
+    on the phone, let it settle, then read out the four lines.</p>
+
+  <div class="check">
+    <p class="name">1 · Can the phone <em>display</em> a YouTube thumbnail?</p>
+    <p class="verdict waiting" id="v1">checking…</p>
+    <p class="why" id="w1"></p>
+  </div>
+
+  <div class="check">
+    <p class="name">2 · Can the app <em>read the pixels</em> of one?</p>
+    <p class="verdict waiting" id="v2">checking…</p>
+    <p class="why" id="w2"></p>
+    <p class="note">This is the one that decides whether a thumbnail can ever
+      travel in a copy.</p>
+  </div>
+
+  <div class="check">
+    <p class="name">3 · Can it read a video's title directly?</p>
+    <p class="verdict waiting" id="v3">checking…</p>
+    <p class="why" id="w3"></p>
+  </div>
+
+  <div class="check">
+    <p class="name">4 · Can it read the title by asking for a callback?</p>
+    <p class="verdict waiting" id="v4">checking…</p>
+    <p class="why" id="w4"></p>
+    <p class="note">Either 3 or 4 passing is enough for titles.</p>
+  </div>
+
+  <hr class="rule">
+
+  <p class="name" style="margin-bottom:0.15rem">5 · Does a picture survive a paste?</p>
+  <p class="note" style="margin-top:0">Tap this, then paste into Notes. The
+    picture is carried inside the copy itself — no fetching required. If it
+    still arrives blank, no thumbnail will ever paste on this phone.</p>
+  <button type="button" id="copy">Copy a test picture</button>
+  <p class="why" id="w5"></p>
+
+  <hr class="rule">
+  <p class="foot">App version running here: <code id="ver">reading…</code></p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var VIDEO = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+  var THUMB = "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg";
+
+  function say(n, ok, why) {
+    var v = document.getElementById("v" + n);
+    v.className = "verdict " + (ok ? "pass" : "fail");
+    v.textContent = ok ? "YES" : "NO";
+    if (why) { document.getElementById("w" + n).textContent = why; }
+  }
+
+  /* 1 — plain display */
+  var probe = new Image();
+  probe.onload = function () { say(1, true, probe.width + "×" + probe.height); };
+  probe.onerror = function () { say(1, false, "the image would not load at all"); };
+  probe.src = THUMB;
+
+  /* 2 — reading the bytes */
+  if (!window.fetch) {
+    say(2, false, "no fetch on this browser");
+  } else {
+    fetch(THUMB, { mode: "cors", credentials: "omit" }).then(function (res) {
+      if (!res.ok) { throw new Error("HTTP " + res.status); }
+      return res.blob();
+    }).then(function (blob) {
+      say(2, true, Math.round(blob.size / 1024) + " KB read");
+    }).catch(function (err) {
+      say(2, false, String(err && err.message ? err.message : err));
+    });
+  }
+
+  /* 3 — the title, read directly */
+  var OE = "https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent(VIDEO);
+
+  if (!window.fetch) {
+    say(3, false, "no fetch on this browser");
+  } else {
+    fetch(OE, { mode: "cors", credentials: "omit" }).then(function (res) {
+      if (!res.ok) { throw new Error("HTTP " + res.status); }
+      return res.json();
+    }).then(function (data) {
+      say(3, true, data && data.title ? data.title : "answered, but with no title");
+    }).catch(function (err) {
+      say(3, false, String(err && err.message ? err.message : err));
+    });
+  }
+
+  /* 4 — the title, by callback */
+  var done4 = false;
+  window.__probeTitle = function (data) {
+    if (done4) { return; }
+    done4 = true;
+    say(4, true, data && data.title ? data.title : "answered, but with no title");
+  };
+
+  var tag = document.createElement("script");
+  tag.onerror = function () {
+    if (done4) { return; }
+    done4 = true;
+    say(4, false, "the endpoint refused the request");
+  };
+  tag.src = OE + "&callback=__probeTitle";
+  document.head.appendChild(tag);
+
+  window.setTimeout(function () {
+    if (done4) { return; }
+    done4 = true;
+    say(4, false, "loaded, but never called back — callbacks look unsupported");
+  }, 9000);
+
+  /* 5 — a self-contained picture on the clipboard */
+  var PIC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAAC" +
+            "qaXHeAAAAWUlEQVR42u3PMQEAAAgDoC251a3gLmSQWnbVAgQIECBAgAABAgQIEC" +
+            "BAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIEHAscA" +
+            "HZbAGdqfHfrAAAAABJRU5ErkJggg==";
+
+  var html = '<p><a href="' + VIDEO + '"><img src="' + PIC +
+             '" alt="" width="64" height="64"></a><br>' +
+             '<a href="' + VIDEO + '">a link with a picture above it</a></p>';
+  var text = "a link with a picture above it\n" + VIDEO;
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var note = document.getElementById("w5");
+
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({
+        "text/plain": new Blob([text], { type: "text/plain" }),
+        "text/html": new Blob([html], { type: "text/html" })
+      })]).then(function () {
+        note.textContent = "copied — now paste it into Notes";
+      }, function (err) {
+        note.textContent = "the copy itself failed: " +
+                           String(err && err.message ? err.message : err);
+      });
+      return;
+    }
+
+    note.textContent = "this browser has no rich clipboard at all";
+  });
+
+  /* which build is on this device */
+  fetch("./sw.js", { cache: "no-store" }).then(function (res) {
+    return res.text();
+  }).then(function (body) {
+    var hit = body.match(/notebook-shell-v\d+/);
+    document.getElementById("ver").textContent = hit ? hit[0] : "unknown";
+  }).catch(function () {
+    document.getElementById("ver").textContent = "could not read";
+  });
+}());
+</script>
+</body>
+</html>
