@@ -1086,6 +1086,17 @@ mark {
 }
 .colophon__note--warn { color: var(--warn); }
 
+.note-link {
+  font: inherit;
+  color: var(--brass-hi);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
 /* --- copying out -------------------------------------------------------- */
 
 .copy {

@@ -54,7 +54,8 @@
     "copy-entry", "copy-book", "copy-all", "archive-book", "delete-entry",
     "book-state", "archived-toggle", "archived-books", "move-btn", "move-menu",
     "report", "report-head", "report-text", "report-close",
-    "backup", "restore", "restore-file", "colophon-note"
+    "backup", "restore", "restore-file", "colophon-note",
+    "sync", "sync-file", "sync-note"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
       document.getElementById(id);
@@ -193,6 +194,13 @@
       c.entries.forEach(function (e) { if (e.n > top) { top = e.n; } });
     });
     return top + 1;
+  }
+
+  /* stable identity for an entry, independent of its display number — a sync
+     merge can renumber an entry to dodge a collision without losing track of
+     which entry it is */
+  function newId(prefix) {
+    return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
   function dyeNode(name) {
@@ -1214,7 +1222,7 @@
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (file) {
       var clip = {
-        id: "f" + Date.now() + Math.random().toString(36).slice(2, 8),
+        id: newId("f"),
         mark: markFor(file),
         name: file.name,
         meta: formatSize(file.size),
@@ -1446,7 +1454,7 @@
     }
 
     var container = context === "book" ? openBook : (containerById(selected) || floating);
-    var entry = { n: nextNumber(), book: "", passages: [passage] };
+    var entry = { n: nextNumber(), id: newId("e"), book: "", passages: [passage] };
     container.entries.push(entry);
     save(entry, container);
 
@@ -1777,6 +1785,7 @@
     if (openBook.loose) { return; }
 
     openBook.archived = !openBook.archived;
+    openBook.touched = Date.now();
     Store.putBook(openBook);
 
     if (openBook.archived && selected === openBook.id) { selected = ""; }
@@ -1823,7 +1832,7 @@
     });
 
     container.entries.splice(container.entries.indexOf(entry), 1);
-    Store.dropEntry(entry.n, fileIds);
+    Store.dropEntry(entry.n, fileIds, entry.id);
     renderBooks();
     refreshUsage();
 
@@ -1834,14 +1843,23 @@
   /* stepping away from the button un-arms it */
   el.deleteEntry.addEventListener("blur", disarm);
 
-  /* --- backup and restore -------------------------------------------------
+  /* --- backup, restore and sync --------------------------------------------
 
-     One JSON file with the notebooks, the entries and the attached files
-     base64'd inline. Restoring merges rather than replaces: nothing you
-     already have is overwritten, and an incoming entry only gets a new number
-     if its own is already taken. */
+     One JSON format serves three jobs. "Back up" writes it to a file you keep
+     yourself. "Restore" folds one back in — nothing you already have is
+     overwritten or lost. "Sync" folds one in the same way and then writes the
+     merged result straight back out to it, so a file sitting in a folder your
+     OS already syncs (iCloud Drive, Dropbox, a NAS share) carries changes
+     between devices without this app ever talking to a server.
 
-  var BACKUP_VERSION = 1;
+     Notebooks and entries merge by their own `id`, not by the number or name
+     on the page, so folding the same file in twice never duplicates anything.
+     A notebook takes whichever copy was touched more recently; an entry takes
+     the union of both copies' sittings, since sittings are only ever added,
+     never edited. A deleted entry leaves a tombstone, so a sync with a device
+     that hasn't heard about the delete doesn't bring it back. */
+
+  var SNAPSHOT_VERSION = 2;
 
   function blobToData(blob) {
     return new Promise(function (resolve) {
@@ -1863,41 +1881,48 @@
       String(d.getDate()).padStart(2, "0") + ".json";
   }
 
+  /* every notebook, every entry, every file inline as a data URL, and the
+     tombstones so a sync partner knows what's been deleted */
+  function buildSnapshot() {
+    return Promise.all([Store.load(), Store.allFiles(), Store.allTombstones()])
+      .then(function (all) {
+        var stored = all[0], files = all[1], tombstones = all[2];
+
+        return Promise.all(files.map(function (file) {
+          return blobToData(file.blob).then(function (data) {
+            return data ? { id: file.id, data: data } : null;
+          });
+        })).then(function (packed) {
+          return {
+            format: "notebook-backup",
+            version: SNAPSHOT_VERSION,
+            made: new Date().toISOString(),
+            books: stored.books,
+            entries: stored.entries,
+            files: packed.filter(Boolean),
+            tombstones: tombstones
+          };
+        });
+      });
+  }
+
   el.backup.addEventListener("click", function () {
     flash(el.backup, "Packing…");
 
-    Promise.all([Store.load(), Store.allFiles()]).then(function (both) {
-      var stored = both[0];
-      var files = both[1];
+    buildSnapshot().then(function (payload) {
+      var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = backupName();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
 
-      return Promise.all(files.map(function (file) {
-        return blobToData(file.blob).then(function (data) {
-          return data ? { id: file.id, data: data } : null;
-        });
-      })).then(function (packed) {
-        var payload = {
-          format: "notebook-backup",
-          version: BACKUP_VERSION,
-          made: new Date().toISOString(),
-          books: stored.books,
-          entries: stored.entries,
-          files: packed.filter(Boolean)
-        };
-
-        var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-        var url = URL.createObjectURL(blob);
-        var link = document.createElement("a");
-        link.href = url;
-        link.download = backupName();
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
-
-        say(stored.entries.length + (stored.entries.length === 1 ? " entry" : " entries") +
-            " and " + payload.files.length +
-            (payload.files.length === 1 ? " file" : " files") + " backed up");
-      });
+      say(payload.entries.length + (payload.entries.length === 1 ? " entry" : " entries") +
+          " and " + payload.files.length +
+          (payload.files.length === 1 ? " file" : " files") + " backed up");
     }).catch(function () {
       say("Couldn't build the backup");
     });
@@ -1910,82 +1935,390 @@
     el.restoreFile.value = "";
     if (!file) { return; }
 
-    file.text().then(function (text) {
-      var payload = JSON.parse(text);
-      if (payload.format !== "notebook-backup") {
-        throw new Error("not a notebook backup");
-      }
-      return merge(payload);
+    readPayload(file).then(function (payload) {
+      return applyPayload(payload).then(reportMerge).catch(function () {
+        say("Couldn't write that backup into storage");
+      });
     }).catch(function (err) {
       say("That file isn't a notebook backup" +
           (err && err.message === "not a notebook backup" ? "" : " — it wouldn't parse"));
     });
   });
 
-  function merge(payload) {
-    var addedBooks = 0;
-    var addedEntries = 0;
-    var renumbered = 0;
-
-    var newBooks = [];
-    (payload.books || []).forEach(function (book) {
-      if (containerById(book.id)) { return; }   /* already here, leave it alone */
-      var mine = { id: book.id, name: book.name, dye: book.dye,
-                   order: book.order, archived: !!book.archived, entries: [] };
-      notebooks.push(mine);
-      newBooks.push(book);
-      addedBooks += 1;
-    });
-
-    var taken = {};
-    containers().forEach(function (c) {
-      c.entries.forEach(function (e) { taken[e.n] = true; });
-    });
-
-    var next = nextNumber();
-    var newEntries = [];
-
-    (payload.entries || []).forEach(function (entry) {
-      if (!entry.passages || !entry.passages.length) { return; }
-
-      var n = entry.n;
-      if (taken[n]) { n = next; next += 1; renumbered += 1; }
-      taken[n] = true;
-
-      var mine = { n: n, book: entry.book || "", passages: entry.passages };
-      var container = containerById(mine.book) || floating;
-      container.entries.push(mine);
-      newEntries.push(mine);
-      addedEntries += 1;
-    });
-
-    return Promise.all((payload.files || []).map(function (file) {
-      return dataToBlob(file.data).then(function (blob) {
-        return { id: file.id, blob: blob };
-      }).catch(function () { return null; });
-    })).then(function (files) {
-      return Store.restore(newBooks, newEntries, files.filter(Boolean));
-    }).then(function () {
-      renderBooks();
-      renderSelection();
-      refreshUsage();
-      route();
-
-      var parts = [];
-      if (addedEntries) {
-        parts.push(addedEntries + (addedEntries === 1 ? " entry" : " entries"));
+  function readPayload(file) {
+    return file.text().then(function (text) {
+      var payload = JSON.parse(text);
+      if (payload.format !== "notebook-backup") {
+        throw new Error("not a notebook backup");
       }
-      if (addedBooks) {
-        parts.push(addedBooks + (addedBooks === 1 ? " notebook" : " notebooks"));
-      }
-      if (!parts.length) { say("Nothing new in that backup"); return; }
-
-      say("Restored " + parts.join(" and ") +
-          (renumbered ? " · " + renumbered + " renumbered around what was already here" : ""));
-    }).catch(function () {
-      say("Couldn't write that backup into storage");
+      return payload;
     });
   }
+
+  function persistableBook(book) {
+    return { id: book.id, name: book.name, dye: book.dye, order: book.order,
+             archived: !!book.archived, touched: book.touched || 0 };
+  }
+
+  function tombstonesHas(list, id) {
+    for (var i = 0; i < list.length; i += 1) { if (list[i].id === id) { return true; } }
+    return false;
+  }
+
+  /* union two passage lists by timestamp — sittings are append-only, so the
+     only real "conflict" is which side has seen more of them. A timestamp
+     both sides happen to share keeps its local copy. */
+  function mergePassages(local, incoming) {
+    var byAt = {};
+    var order = [];
+    local.concat(incoming).forEach(function (p) {
+      if (!(p.at in byAt)) { order.push(p.at); byAt[p.at] = p; }
+    });
+    order.sort(function (x, y) { return x - y; });
+    return order.map(function (at) { return byAt[at]; });
+  }
+
+  /* folds a payload into what's already here, by id rather than by the
+     number or name on the page. Returns a summary instead of writing to the
+     hint line itself, so sync can report once instead of two toasts
+     stepping on each other. */
+  function applyPayload(payload) {
+    var summary = { addedBooks: 0, updatedBooks: 0, addedEntries: 0,
+                     updatedEntries: 0, droppedEntries: 0, renumbered: 0 };
+
+    return Promise.all([Store.allTombstones(), Store.allFiles()]).then(function (both) {
+      var localTombstones = {};
+      both[0].forEach(function (t) { localTombstones[t.id] = t; });
+      var haveFile = {};
+      both[1].forEach(function (f) { haveFile[f.id] = true; });
+
+      var booksToPersist = [];
+      var entriesToPersist = [];
+      var tombstonesToPersist = [];
+      var numbersToDrop = [];
+      var fileIdsToDrop = [];
+
+      var localById = {};
+      containers().forEach(function (c) {
+        c.entries.forEach(function (e) {
+          if (e.id) { localById[e.id] = { entry: e, container: c }; }
+        });
+      });
+
+      /* notebooks: newer `touched` wins, matched by id */
+      (payload.books || []).forEach(function (incoming) {
+        var local = containerById(incoming.id);
+        if (!local || local.loose) {
+          if (!local) {
+            var mine = { id: incoming.id, name: incoming.name, dye: incoming.dye,
+                         order: incoming.order, archived: !!incoming.archived,
+                         touched: incoming.touched || 0, entries: [] };
+            notebooks.push(mine);
+            booksToPersist.push(persistableBook(mine));
+            summary.addedBooks += 1;
+          }
+          return;
+        }
+        if ((incoming.touched || 0) > (local.touched || 0)) {
+          local.name = incoming.name;
+          local.dye = incoming.dye;
+          local.order = incoming.order;
+          local.archived = !!incoming.archived;
+          local.touched = incoming.touched;
+          booksToPersist.push(persistableBook(local));
+          summary.updatedBooks += 1;
+        }
+      });
+
+      /* tombstones: a new one tells this device to drop a local copy it
+         hasn't deleted yet, and is kept around so it never comes back */
+      (payload.tombstones || []).forEach(function (t) {
+        if (localTombstones[t.id]) { return; }
+        tombstonesToPersist.push(t);
+        var found = localById[t.id];
+        if (found) {
+          found.container.entries.splice(found.container.entries.indexOf(found.entry), 1);
+          numbersToDrop.push(found.entry.n);
+          found.entry.passages.forEach(function (p) {
+            p.clips.forEach(function (c) { if (c.id) { fileIdsToDrop.push(c.id); } });
+          });
+          delete localById[t.id];
+          summary.droppedEntries += 1;
+        }
+      });
+
+      var taken = {};
+      containers().forEach(function (c) {
+        c.entries.forEach(function (e) { taken[e.n] = true; });
+      });
+      var next = nextNumber();
+
+      (payload.entries || []).forEach(function (incoming) {
+        if (!incoming.passages || !incoming.passages.length) { return; }
+        if (!incoming.id) { incoming.id = newId("e"); }   /* an old, id-less backup */
+        if (localTombstones[incoming.id] || tombstonesHas(tombstonesToPersist, incoming.id)) {
+          return;
+        }
+
+        var found = localById[incoming.id];
+        if (found) {
+          var merged = mergePassages(found.entry.passages, incoming.passages);
+          if (merged.length !== found.entry.passages.length) {
+            found.entry.passages = merged;
+            entriesToPersist.push(found.entry);
+            summary.updatedEntries += 1;
+          }
+          return;
+        }
+
+        var n = incoming.n;
+        if (taken[n]) { n = next; next += 1; summary.renumbered += 1; }
+        taken[n] = true;
+
+        var mine = { n: n, id: incoming.id, book: incoming.book || "", passages: incoming.passages };
+        var container = containerById(mine.book) || floating;
+        container.entries.push(mine);
+        entriesToPersist.push(mine);
+        localById[mine.id] = { entry: mine, container: container };
+        summary.addedEntries += 1;
+      });
+
+      var newFiles = (payload.files || []).filter(function (f) { return !haveFile[f.id]; });
+
+      return Promise.all(newFiles.map(function (file) {
+        return dataToBlob(file.data).then(function (blob) {
+          return { id: file.id, blob: blob };
+        }).catch(function () { return null; });
+      })).then(function (files) {
+        return Promise.all([
+          Store.restore(booksToPersist, entriesToPersist, files.filter(Boolean)),
+          Store.dropEntries(numbersToDrop, fileIdsToDrop),
+          tombstonesToPersist.length ? Store.addTombstones(tombstonesToPersist) : null
+        ]);
+      }).then(function () {
+        renderBooks();
+        renderSelection();
+        refreshUsage();
+        route();
+        return summary;
+      });
+    });
+  }
+
+  function reportMerge(summary) {
+    var parts = [];
+    if (summary.addedEntries) {
+      parts.push(summary.addedEntries + (summary.addedEntries === 1 ? " entry" : " entries"));
+    }
+    if (summary.updatedEntries) {
+      parts.push(summary.updatedEntries + (summary.updatedEntries === 1 ? " sitting" : " entries") + " updated");
+    }
+    if (summary.addedBooks) {
+      parts.push(summary.addedBooks + (summary.addedBooks === 1 ? " notebook" : " notebooks"));
+    }
+    if (summary.droppedEntries) {
+      parts.push(summary.droppedEntries + (summary.droppedEntries === 1 ? " entry" : " entries") + " deleted elsewhere");
+    }
+    if (!parts.length) { say("Nothing new"); return; }
+
+    say("Restored " + parts.join(" · ") +
+        (summary.renumbered ? " · " + summary.renumbered + " renumbered around what was already here" : ""));
+  }
+
+  /* --- sync -----------------------------------------------------------------
+
+     A basic, local-only sync: point the app at one shared file — ideally one
+     that lives in a folder your OS already keeps in step across devices
+     (iCloud Drive, Dropbox, OneDrive, a NAS share, Syncthing) — and each run
+     reads whatever's in that file, folds it in with the same merge Restore
+     uses, and writes the result straight back out. The file is the only
+     thing that moves between devices; this app still never talks to a
+     server.
+
+     Where the File System Access API exists (Chrome and Edge, on desktop and
+     Android), the file's handle is remembered after the first pick, so Sync
+     is one click from then on and runs itself on launch and when the tab
+     regains focus. Where it doesn't (Safari, iOS, Firefox as of this
+     writing) it's two manual taps each time: pick the shared file, then save
+     the merged copy this app hands back over the same spot — the merge
+     underneath is identical either way, and the two can even be mixed, since
+     it's the same file format as Back up and Restore. */
+
+  var SYNC_NAME = "notebook-sync.json";
+  var FS_ACCESS = typeof window.showSaveFilePicker === "function";
+
+  var syncHandle = null;
+  var syncBusy = false;
+  var syncLastFocus = 0;
+
+  function syncButtonLabel(text) {
+    el.sync.querySelector(".copy__label").textContent = text;
+  }
+
+  function syncNote(text) {
+    el.syncNote.textContent = text || "";
+  }
+
+  function syncedAt(at) {
+    Store.putSetting("syncAt", at);
+    syncNote("Last synced " + stamp(at) + ", " + timeOf({ at: at }));
+    if (FS_ACCESS) {
+      el.syncNote.appendChild(document.createTextNode(" — "));
+      var unlink = elem("button", "note-link", "Unlink");
+      unlink.type = "button";
+      unlink.addEventListener("click", forgetSync);
+      el.syncNote.appendChild(unlink);
+    }
+  }
+
+  function forgetSync() {
+    syncHandle = null;
+    Store.dropSetting("syncHandle");
+    Store.dropSetting("syncAt");
+    syncButtonLabel("Sync…");
+    syncNote("");
+    say("Unlinked — this device keeps everything it has, it just won't fold that file in any more");
+  }
+
+  function readHandle(handle) {
+    return handle.getFile().then(function (file) {
+      return file.size === 0 ? null : readPayload(file);
+    }).catch(function () { return null; });
+  }
+
+  function writeHandle(handle, payload) {
+    return handle.createWritable().then(function (writable) {
+      return writable.write(JSON.stringify(payload)).then(function () {
+        return writable.close();
+      });
+    });
+  }
+
+  function verifyPermission(handle, forWrite) {
+    var opts = { mode: forWrite ? "readwrite" : "read" };
+    return handle.queryPermission(opts).then(function (state) {
+      if (state === "granted") { return true; }
+      return handle.requestPermission(opts).then(function (state2) {
+        return state2 === "granted";
+      });
+    }).catch(function () { return false; });
+  }
+
+  /* reads the shared file, folds it in, writes the merge back out. `quiet`
+     keeps it off the hint line, for the syncs this device runs on its own. */
+  function runSync(handle, quiet) {
+    if (syncBusy) { return Promise.resolve(); }
+    syncBusy = true;
+    if (!quiet) { syncButtonLabel("Syncing…"); }
+
+    return verifyPermission(handle, true).then(function (ok) {
+      if (!ok) { throw new Error("no permission"); }
+      return readHandle(handle);
+    }).then(function (remote) {
+      return remote ? applyPayload(remote) : null;
+    }).then(function (summary) {
+      return buildSnapshot().then(function (snapshot) {
+        return writeHandle(handle, snapshot).then(function () { return summary; });
+      });
+    }).then(function (summary) {
+      syncHandle = handle;
+      syncButtonLabel("Sync now");
+      syncedAt(Date.now());
+      if (!quiet) { reportMerge(summary || {}); }
+    }).catch(function (err) {
+      syncButtonLabel(syncHandle ? "Sync now" : "Sync…");
+      if (!quiet) {
+        say(err && err.message === "no permission"
+          ? "Couldn't get permission to read that file"
+          : "Sync didn't go through — it'll try again next time");
+      }
+    }).then(function () { syncBusy = false; });
+  }
+
+  function connectSync() {
+    window.showSaveFilePicker({
+      suggestedName: SYNC_NAME,
+      types: [{ description: "Notebook sync file", accept: { "application/json": [".json"] } }]
+    }).then(function (handle) {
+      Store.putSetting("syncHandle", handle);
+      return runSync(handle, false);
+    }).catch(function (err) {
+      if (err && err.name !== "AbortError") { say("Couldn't set that file up for sync"); }
+    });
+  }
+
+  el.sync.addEventListener("click", function () {
+    if (!FS_ACCESS) { el.syncFile.click(); return; }
+    if (syncHandle) { runSync(syncHandle, false); return; }
+    connectSync();
+  });
+
+  /* Safari and anywhere else without the File System Access API: Sync picks
+     a file the same way Restore does, then immediately hands back a merged
+     copy to save over the same spot it came from. */
+  el.syncFile.addEventListener("change", function () {
+    var file = el.syncFile.files[0];
+    el.syncFile.value = "";
+    if (!file) { return; }
+
+    var name = file.name || SYNC_NAME;
+    readPayload(file).then(function (payload) {
+      return applyPayload(payload);
+    }).then(function (summary) {
+      return buildSnapshot().then(function (snapshot) {
+        var blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+        return summary;
+      });
+    }).then(function (summary) {
+      Store.putSetting("syncName", name);
+      syncedAt(Date.now());
+      reportMerge(summary);
+      say("Saved the merged copy as " + name + " — put it back where this one came from");
+    }).catch(function (err) {
+      say("That file isn't a notebook backup" +
+          (err && err.message === "not a notebook backup" ? "" : " — it wouldn't parse"));
+    });
+  });
+
+  /* pick back up where sync left off: a remembered handle runs quietly on
+     boot and when the tab regains focus; without one, just a reminder of
+     what to tap */
+  function restoreSync() {
+    if (!FS_ACCESS) {
+      Store.getSetting("syncName").then(function (name) {
+        syncNote(name
+          ? "Last saved as " + name + " — tap Sync to fold in any changes"
+          : "No synced file yet — Back up once, move that file into a synced folder, " +
+            "then Sync will pick it up from there");
+      });
+      return;
+    }
+    Store.getSetting("syncHandle").then(function (handle) {
+      if (!handle) { return; }
+      syncHandle = handle;
+      syncButtonLabel("Sync now");
+      return handle.queryPermission({ mode: "readwrite" }).then(function (state) {
+        if (state === "granted") { runSync(handle, true); }
+        else { syncNote("Tap Sync to reconnect"); }
+      });
+    }).catch(function () {});
+  }
+
+  window.addEventListener("focus", function () {
+    if (!syncHandle || syncBusy) { return; }
+    var now = Date.now();
+    if (now - syncLastFocus < 45000) { return; }
+    syncLastFocus = now;
+    runSync(syncHandle, true);
+  });
 
   /* --- a new notebook ----------------------------------------------------- */
 
@@ -2022,6 +2355,7 @@
         name: name,
         dye: dyes[notebooks.length % dyes.length],
         order: notebooks.length,
+        touched: Date.now(),
         entries: []
       };
       notebooks.push(book);
@@ -2094,10 +2428,14 @@
   Store.load().then(function (data) {
     data.books.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     data.books.forEach(function (b) {
-      notebooks.push({ id: b.id, name: b.name, dye: b.dye, order: b.order, entries: [] });
+      notebooks.push({ id: b.id, name: b.name, dye: b.dye, order: b.order,
+                       archived: !!b.archived, touched: b.touched || 0, entries: [] });
     });
 
+    /* entries made before an entry carried its own id get one now, so sync
+       has something stable to key on */
     data.entries.forEach(function (entry) {
+      if (!entry.id) { entry.id = newId("e"); Store.putEntry(entry); }
       var container = containerById(entry.book) || floating;
       container.entries.push(entry);
     });
@@ -2112,6 +2450,7 @@
       renderNote();
     });
     refreshUsage();
+    restoreSync();
 
     renderClips();
     updateCount();
