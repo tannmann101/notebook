@@ -1,8 +1,9 @@
 /* Storage.
 
-   Everything lives in IndexedDB in the browser. Nothing is uploaded, and
-   nothing leaves the device — which also means each device keeps its own
-   notebook until there's a sync story.
+   Everything lives in IndexedDB in the browser. Nothing is uploaded on its
+   own, and nothing leaves the device unless sync is turned on — and even
+   then it only ever goes to a file this device was handed directly (see the
+   sync section of app.js), never to a server.
 
    The whole notebook is small enough to hold in memory, so the app loads it
    once at boot and writes back on every change. That keeps rendering
@@ -12,7 +13,7 @@
   "use strict";
 
   var NAME = "notebook";
-  var VERSION = 1;
+  var VERSION = 2;
   var db = null;
 
   function open() {
@@ -31,6 +32,15 @@
         }
         if (!out.objectStoreNames.contains("files")) {
           out.createObjectStore("files", { keyPath: "id" });
+        }
+        /* entries a sync partner has deleted, so a merge doesn't bring them
+           back from a device that hasn't heard about the delete yet */
+        if (!out.objectStoreNames.contains("tombstones")) {
+          out.createObjectStore("tombstones", { keyPath: "id" });
+        }
+        /* small keyed bag for the sync file handle and when it last ran */
+        if (!out.objectStoreNames.contains("settings")) {
+          out.createObjectStore("settings", { keyPath: "key" });
         }
       };
 
@@ -72,16 +82,21 @@
     putBook: function (book) {
       return run(["books"], "readwrite", function (tx) {
         tx.objectStore("books").put({
-          id: book.id, name: book.name, dye: book.dye, order: book.order
+          id: book.id, name: book.name, dye: book.dye, order: book.order,
+          archived: !!book.archived, touched: book.touched || Date.now()
         });
       });
     },
 
-    /* passages carry real timestamps; clips carry a file id, not the file */
+    /* passages carry real timestamps; clips carry a file id, not the file.
+       `id` is the entry's identity across devices — stable for as long as the
+       entry exists, unlike `n`, which a sync merge may have to reassign to
+       stay clear of a number already used locally for something else. */
     putEntry: function (entry) {
       return run(["entries"], "readwrite", function (tx) {
         tx.objectStore("entries").put({
           n: entry.n,
+          id: entry.id,
           book: entry.book,
           passages: entry.passages.map(function (p) {
             return {
@@ -103,12 +118,61 @@
       });
     },
 
-    /* an entry and whatever it was carrying */
-    dropEntry: function (n, fileIds) {
-      return run(["entries", "files"], "readwrite", function (tx) {
+    /* an entry and whatever it was carrying. entryId, when the entry has one,
+       leaves a tombstone so a later sync doesn't resurrect it from a device
+       that hasn't seen the delete yet. */
+    dropEntry: function (n, fileIds, entryId) {
+      return run(["entries", "files", "tombstones"], "readwrite", function (tx) {
         tx.objectStore("entries").delete(n);
         var files = tx.objectStore("files");
         (fileIds || []).forEach(function (id) { files.delete(id); });
+        if (entryId) {
+          tx.objectStore("tombstones").put({ id: entryId, at: Date.now() });
+        }
+      });
+    },
+
+    /* bulk delete for a sync merge dropping entries a partner already
+       removed — the tombstones themselves are recorded separately */
+    dropEntries: function (ns, fileIds) {
+      if (!(ns || []).length && !(fileIds || []).length) { return Promise.resolve(); }
+      return run(["entries", "files"], "readwrite", function (tx) {
+        var entries = tx.objectStore("entries");
+        (ns || []).forEach(function (n) { entries.delete(n); });
+        var files = tx.objectStore("files");
+        (fileIds || []).forEach(function (id) { files.delete(id); });
+      });
+    },
+
+    allTombstones: function () { return all("tombstones"); },
+
+    /* tombstones a sync partner already knows about, so this device deletes
+       the matching entry too instead of waiting for someone to ask it to */
+    addTombstones: function (list) {
+      return run(["tombstones"], "readwrite", function (tx) {
+        var store = tx.objectStore("tombstones");
+        list.forEach(function (t) { store.put(t); });
+      });
+    },
+
+    getSetting: function (key) {
+      return run(["settings"], "readonly", function (tx, done) {
+        var request = tx.objectStore("settings").get(key);
+        request.onsuccess = function () {
+          done(request.result ? request.result.value : null);
+        };
+      });
+    },
+
+    putSetting: function (key, value) {
+      return run(["settings"], "readwrite", function (tx) {
+        tx.objectStore("settings").put({ key: key, value: value });
+      });
+    },
+
+    dropSetting: function (key) {
+      return run(["settings"], "readwrite", function (tx) {
+        tx.objectStore("settings").delete(key);
       });
     },
 

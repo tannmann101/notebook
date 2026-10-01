@@ -106,9 +106,10 @@ In this browser, on this device — IndexedDB, via `store.js`. Nothing is
 uploaded, there is no account, and there is no server to go down. The site
 itself is public; your notes are not on it.
 
-The flip side: **there is no sync.** A notebook written on the laptop is not the
-notebook on the phone. Each install keeps its own — which is the point, if you
-take notes differently on each.
+The flip side: by default, a notebook written on the laptop is not the notebook
+on the phone. Each install keeps its own — which is the point, if you take
+notes differently on each — unless you turn **Sync** on (see below), which
+carries entries between devices through a file rather than a server.
 
 The boundary is origin + browser + container, not device: a different browser on
 the same machine is a different notebook, and on iOS a home-screen app keeps its
@@ -131,6 +132,36 @@ is overwritten, and an incoming entry only takes a new number if its own is
 already in use — so restoring onto a fresh device gives the numbers back
 unchanged, and restoring onto a device that already has notes adds to them
 instead of colliding.
+
+**Sync.** The same merge, running both ways against one file. Point *Sync* at
+a file inside a folder your OS already keeps in step across your devices —
+iCloud Drive, Dropbox, OneDrive, a NAS share, Syncthing — and each run reads
+whatever's there, folds it in, and writes the merge straight back out. The
+file is the only thing that moves; this app still never talks to a server,
+and the format is the same one Back up and Restore use.
+
+Notebooks and entries merge by their own internal id, not by the number or
+name on the page, so running Sync twice against the same file never
+duplicates anything. A notebook takes whichever copy was touched more
+recently; an entry takes the union of both copies' sittings, since a sitting,
+once written, is never edited — only added to. Deleting an entry leaves a
+small marker behind so a sync with a device that hasn't heard about the
+delete yet doesn't bring it back.
+
+Where the File System Access API exists — Chrome and Edge, on desktop and
+Android — the file is remembered after the first pick: Sync is one click from
+then on, and runs itself on launch and when the tab regains focus. Safari and
+iOS don't have that API, so there Sync is two taps each time: pick the shared
+file, then save the merged copy this app hands back over the same spot. Back
+up once to create the first file if you're starting from nothing.
+
+What Sync doesn't do: once an entry exists on both sides, re-filing it on one
+device doesn't carry to the other — sittings merge, but which notebook an
+entry lives in is only set when the entry is new to a device. A notebook's own
+edits (an archive toggle, for now the only one) take the whole notebook from
+whichever side was touched more recently, not a field at a time. At the scale
+this app is built for, that's a trade worth taking for how little there is to
+configure.
 
 ## Running it
 
@@ -222,13 +253,15 @@ order a phone wants anyway.
 
 ## Next
 
-Sync is the open question. Local-only is what makes this simple, private and
-free to run; it is also why the phone and the laptop keep separate notebooks.
+Sync now has a basic answer — see **Sync** above — but it's a file-level merge,
+not a live connection: no real-time collaboration, and a browser that can't
+hold a file handle (Safari, for now) still needs a tap on each end. A proper
+answer, if there's ever room for one, is still open.
 
 The whole notebook is loaded from IndexedDB at boot and held in memory, so
 rendering stays synchronous and every change is written straight back. That is
-fine at personal scale — thousands of entries — and it is the shape a sync layer
-would sit on top of, if there is ever one.
+fine at personal scale — thousands of entries — and it is the shape a sync
+layer sits on top of today, and the one any further sync work would too.
 
 Sittings carry real timestamps (`at`, epoch milliseconds). Every figure on the
 page is derived: entry counts, word counts, dates, "kept since".
