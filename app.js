@@ -55,7 +55,8 @@
     "book-state", "archived-toggle", "archived-books", "move-btn", "move-menu",
     "report", "report-head", "report-text", "report-close",
     "backup", "restore", "restore-file", "colophon-note",
-    "sync", "sync-file", "sync-note"
+    "sync", "sync-file", "sync-note",
+    "install-btn", "install-help", "install-steps", "install-close"
   ].forEach(function (id) {
     el[id.replace(/-(\w)/g, function (m, c) { return c.toUpperCase(); })] =
       document.getElementById(id);
@@ -2373,6 +2374,72 @@
     });
   });
 
+  /* --- install ---------------------------------------------------------------
+
+     An install that only lives behind a browser menu or an address-bar icon
+     nobody's told to look for is easy to miss. Chrome and Edge fire
+     `beforeinstallprompt` when they judge the page installable, so this
+     button mostly just replays the prompt they already built. Safari never
+     fires that event — there's no API for a page to trigger its install at
+     all — so there the same button opens a short panel of the manual steps
+     instead. */
+
+  var deferredInstall = null;
+
+  function standalone() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      navigator.standalone === true;
+  }
+
+  function platformSteps() {
+    var ua = navigator.userAgent || "";
+    if (/iPhone|iPad|iPod/.test(ua) && !window.MSStream) {
+      return ["Tap the Share icon", "Scroll down and tap Add to Home Screen"];
+    }
+    if (/Macintosh/.test(ua)) {
+      return ["In Safari: File → Add to Dock",
+              "Or, in Chrome or Edge: click Install in the address bar"];
+    }
+    if (/Android/.test(ua)) {
+      return ["Open the browser menu", "Tap Install app, or Add to Home screen"];
+    }
+    return ["In Chrome or Edge: click Install in the address bar"];
+  }
+
+  function openInstallHelp() {
+    el.installSteps.textContent = "";
+    platformSteps().forEach(function (step) {
+      el.installSteps.appendChild(elem("li", null, step));
+    });
+    el.installHelp.hidden = false;
+  }
+
+  function closeInstallHelp() { el.installHelp.hidden = true; }
+
+  el.installClose.addEventListener("click", closeInstallHelp);
+  el.installHelp.addEventListener("click", function (event) {
+    if (event.target === el.installHelp) { closeInstallHelp(); }
+  });
+
+  el.installBtn.addEventListener("click", function () {
+    if (!deferredInstall) { openInstallHelp(); return; }
+    deferredInstall.prompt();
+    deferredInstall.userChoice.then(function () { deferredInstall = null; });
+  });
+
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    deferredInstall = event;
+  });
+
+  window.addEventListener("appinstalled", function () {
+    deferredInstall = null;
+    el.installBtn.hidden = true;
+    closeInstallHelp();
+  });
+
+  if (!standalone()) { el.installBtn.hidden = false; }
+
   /* --- dateline ----------------------------------------------------------- */
 
   var narrow = window.matchMedia("(max-width: 34em)");
@@ -2406,7 +2473,8 @@
       event.preventDefault();
       el.find.focus();
     } else if (event.key === "Escape") {
-      if (!el.report.hidden) { closeReport(); }
+      if (!el.installHelp.hidden) { closeInstallHelp(); }
+      else if (!el.report.hidden) { closeReport(); }
       else if (finding) { clearSearch(); }
       else if (view !== "home") { go(view === "entry" ? "#/n/" + openBook.id : "#/"); }
     }

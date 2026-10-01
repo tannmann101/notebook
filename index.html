@@ -46,6 +46,15 @@
     <span class="stamp" id="dateline">&nbsp;</span>
     <kbd class="key" title="Press n to start an entry">n</kbd>
   </div>
+
+  <button class="install" type="button" id="install-btn" hidden>
+    <svg class="install__mark" width="12" height="12" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="M12 3v12M7.5 10.5L12 15l4.5-4.5M4 19h16"></path>
+    </svg>
+    <span>Install</span>
+  </button>
  </div>
 </header>
 
@@ -248,6 +257,16 @@
     <p class="report__head stamp" id="report-head">Select all, then copy</p>
     <textarea class="report__text" id="report-text" readonly aria-label="Report text"></textarea>
     <button class="report__close" type="button" id="report-close">Close</button>
+  </div>
+</div>
+
+<div class="install-help" id="install-help" hidden role="dialog" aria-label="Install Notebook" aria-modal="true">
+  <div class="install-help__frame">
+    <p class="install-help__head stamp">Install Notebook</p>
+    <ol class="install-help__steps" id="install-steps"></ol>
+    <p class="install-help__why">It opens full-screen, works with no connection, and installing is what
+      asks the browser not to clear your notes under disk pressure.</p>
+    <button class="install-help__close" type="button" id="install-close">Close</button>
   </div>
 </div>
 
